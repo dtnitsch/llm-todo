@@ -1,0 +1,386 @@
+# 50 Realistic Development Tasks for Token Efficiency Testing
+# Mixed priorities, instructions, files, dependencies
+
+# P0: Foundation (10 tasks)
+- id: setup-db
+  title: "Setup PostgreSQL database and migrations"
+  priority: p0
+  status: pending
+  effort: m
+  files: ["db/schema.sql", "migrations/001_init.sql"]
+  instructions:
+    must_do:
+      - "Install PostgreSQL 15"
+      - "Create migrations directory"
+      - "Write initial schema"
+    must_not_do:
+      - "Don't use ORM yet - raw SQL first"
+
+- id: auth-api
+  title: "Implement authentication API endpoints"
+  priority: p0
+  status: pending
+  effort: m
+  depends_on: ["setup-db"]
+  files: ["api/auth.go", "middleware/jwt.go"]
+  instructions:
+    must_do:
+      - "POST /auth/login"
+      - "POST /auth/register"
+      - "JWT token generation"
+    must_not_do:
+      - "No OAuth yet - just email/password"
+
+- id: user-model
+  title: "Create User model and repository"
+  priority: p0
+  status: pending
+  effort: s
+  depends_on: ["setup-db"]
+  files: ["models/user.go", "repos/user_repo.go"]
+
+- id: api-middleware
+  title: "Setup API middleware (CORS, logging, auth)"
+  priority: p0
+  status: pending
+  effort: s
+  files: ["middleware/cors.go", "middleware/logger.go"]
+
+- id: env-config
+  title: "Environment configuration and secrets management"
+  priority: p0
+  status: pending
+  effort: s
+  files: [".env.example", "config/config.go"]
+  instructions:
+    must_do:
+      - "Never commit .env to git"
+      - "Use environment variables"
+
+- id: error-handling
+  title: "Centralized error handling and logging"
+  priority: p0
+  status: pending
+  effort: m
+  files: ["pkg/errors/errors.go", "pkg/logger/logger.go"]
+
+- id: api-router
+  title: "Setup API router and route registration"
+  priority: p0
+  status: pending
+  effort: s
+  depends_on: ["api-middleware"]
+  files: ["api/router.go", "main.go"]
+
+- id: health-check
+  title: "Add health check and readiness endpoints"
+  priority: p0
+  status: pending
+  effort: xs
+  files: ["api/health.go"]
+
+- id: docker-setup
+  title: "Docker configuration for local development"
+  priority: p0
+  status: pending
+  effort: m
+  files: ["Dockerfile", "docker-compose.yml"]
+
+- id: ci-pipeline
+  title: "GitHub Actions CI pipeline"
+  priority: p0
+  status: pending
+  effort: m
+  depends_on: ["docker-setup"]
+  files: [".github/workflows/ci.yml"]
+
+# P1: Features (15 tasks)
+- id: posts-api
+  title: "Posts CRUD API endpoints"
+  priority: p1
+  status: pending
+  effort: m
+  depends_on: ["auth-api"]
+  files: ["api/posts.go", "models/post.go"]
+
+- id: comments-api
+  title: "Comments API with nested threading"
+  priority: p1
+  status: pending
+  effort: m
+  depends_on: ["posts-api"]
+  files: ["api/comments.go", "models/comment.go"]
+
+- id: search-posts
+  title: "Full-text search for posts"
+  priority: p1
+  status: pending
+  effort: m
+  files: ["api/search.go", "db/search_index.sql"]
+
+- id: pagination
+  title: "Cursor-based pagination for all list endpoints"
+  priority: p1
+  status: pending
+  effort: s
+  files: ["pkg/pagination/cursor.go"]
+
+- id: rate-limiting
+  title: "API rate limiting per user"
+  priority: p1
+  status: pending
+  effort: s
+  files: ["middleware/ratelimit.go"]
+
+- id: file-upload
+  title: "File upload service (images, documents)"
+  priority: p1
+  status: pending
+  effort: m
+  files: ["api/upload.go", "pkg/storage/s3.go"]
+
+- id: notifications
+  title: "Push notification system"
+  priority: p1
+  status: pending
+  effort: m
+  files: ["services/notifications.go", "workers/notification_worker.go"]
+
+- id: email-service
+  title: "Email service integration (SendGrid)"
+  priority: p1
+  status: pending
+  effort: s
+  files: ["services/email.go"]
+
+- id: password-reset
+  title: "Password reset flow with email"
+  priority: p1
+  status: pending
+  effort: m
+  depends_on: ["email-service", "auth-api"]
+  files: ["api/password_reset.go"]
+
+- id: user-profile
+  title: "User profile management endpoints"
+  priority: p1
+  status: pending
+  effort: s
+  depends_on: ["user-model"]
+  files: ["api/profile.go"]
+
+- id: follows-system
+  title: "User follows/followers system"
+  priority: p1
+  status: pending
+  effort: m
+  files: ["models/follow.go", "api/follows.go"]
+
+- id: feed-algo
+  title: "Personalized feed algorithm"
+  priority: p1
+  status: pending
+  effort: m
+  depends_on: ["follows-system", "posts-api"]
+  files: ["services/feed.go"]
+
+- id: moderation
+  title: "Content moderation tools"
+  priority: p1
+  status: pending
+  effort: m
+  files: ["api/moderation.go", "services/moderation.go"]
+
+- id: analytics
+  title: "Basic analytics tracking"
+  priority: p1
+  status: pending
+  effort: s
+  files: ["services/analytics.go"]
+
+- id: webhooks
+  title: "Webhook system for external integrations"
+  priority: p1
+  status: pending
+  effort: m
+  files: ["api/webhooks.go", "workers/webhook_worker.go"]
+
+# P2: Polish (15 tasks)
+- id: api-docs
+  title: "OpenAPI/Swagger documentation"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["docs/openapi.yaml"]
+
+- id: frontend-client
+  title: "Generate TypeScript API client"
+  priority: p2
+  status: pending
+  effort: s
+  depends_on: ["api-docs"]
+  files: ["client/api.ts"]
+
+- id: integration-tests
+  title: "Integration test suite"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["tests/integration/*"]
+
+- id: load-tests
+  title: "Load testing with k6"
+  priority: p2
+  status: pending
+  effort: s
+  files: ["tests/load/scenarios.js"]
+
+- id: db-indexes
+  title: "Optimize database indexes"
+  priority: p2
+  status: pending
+  effort: s
+  depends_on: ["setup-db"]
+  files: ["migrations/002_indexes.sql"]
+
+- id: caching
+  title: "Redis caching layer"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["pkg/cache/redis.go"]
+
+- id: monitoring
+  title: "Prometheus metrics and Grafana dashboards"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["monitoring/prometheus.yml", "monitoring/dashboards/*"]
+
+- id: logging-stack
+  title: "Centralized logging with ELK stack"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["logging/logstash.conf"]
+
+- id: backup-strategy
+  title: "Automated database backups"
+  priority: p2
+  status: pending
+  effort: s
+  files: ["scripts/backup.sh"]
+
+- id: security-scan
+  title: "Security vulnerability scanning"
+  priority: p2
+  status: pending
+  effort: s
+  files: [".github/workflows/security.yml"]
+
+- id: api-versioning
+  title: "API versioning strategy"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["api/v2/*"]
+
+- id: mobile-endpoints
+  title: "Mobile-optimized API endpoints"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["api/mobile/*"]
+
+- id: admin-panel
+  title: "Admin dashboard API"
+  priority: p2
+  status: pending
+  effort: m
+  files: ["api/admin/*"]
+
+- id: feature-flags
+  title: "Feature flag system"
+  priority: p2
+  status: pending
+  effort: s
+  files: ["pkg/features/flags.go"]
+
+- id: graceful-shutdown
+  title: "Graceful shutdown handling"
+  priority: p2
+  status: pending
+  effort: xs
+  files: ["main.go"]
+
+# P3: Advanced (7 tasks)
+- id: graphql-api
+  title: "GraphQL API alongside REST"
+  priority: p3
+  status: pending
+  effort: m
+  files: ["api/graphql/schema.graphql"]
+
+- id: websockets
+  title: "WebSocket support for real-time features"
+  priority: p3
+  status: pending
+  effort: m
+  files: ["api/ws/handler.go"]
+
+- id: multi-tenancy
+  title: "Multi-tenancy support"
+  priority: p3
+  status: pending
+  effort: m
+  files: ["models/tenant.go", "middleware/tenant.go"]
+
+- id: audit-log
+  title: "Comprehensive audit logging"
+  priority: p3
+  status: pending
+  effort: s
+  files: ["models/audit_log.go"]
+
+- id: data-export
+  title: "User data export (GDPR compliance)"
+  priority: p3
+  status: pending
+  effort: m
+  files: ["api/export.go", "workers/export_worker.go"]
+
+- id: ml-recommendations
+  title: "ML-based content recommendations"
+  priority: p3
+  status: pending
+  effort: m
+  files: ["services/ml/recommendations.py"]
+
+- id: cdn-integration
+  title: "CDN integration for static assets"
+  priority: p3
+  status: pending
+  effort: s
+  files: ["pkg/cdn/cloudfront.go"]
+
+# P4: Future (3 tasks)
+- id: blockchain-auth
+  title: "Blockchain-based authentication"
+  priority: p4
+  status: pending
+  effort: m
+  files: ["api/web3/auth.go"]
+
+- id: ai-moderation
+  title: "AI-powered content moderation"
+  priority: p4
+  status: pending
+  effort: m
+  files: ["services/ai/moderator.py"]
+
+- id: federation
+  title: "ActivityPub federation support"
+  priority: p4
+  status: pending
+  effort: m
+  files: ["services/federation/activitypub.go"]

@@ -1,0 +1,277 @@
+# LLM Todo System Extraction Plan
+# Instructions for extracting vibe's todo system into standalone llm-todo tool
+
+metadata:
+  title: "Extract vibe todo → llm-todo standalone tool"
+  author: "Claude (for future LLM implementation)"
+  date: "2026-01-18"
+  status: "planning"
+  priority: "p2"
+
+objective: |
+  Extract /Users/daniel.nitsch/ais/projects/vibe/pkg/todo into standalone
+  llm-todo tool that can be used across multiple LLM-assisted projects.
+
+  Goal: Single task management system for all LLM workflows, not just vibe.
+
+source_files:
+  vibe_implementation:
+    - path: "/Users/daniel.nitsch/ais/projects/vibe/pkg/todo"
+      description: "Current SQLite-based todo system"
+      keep: ["session model", "priority model (p0-p4)", "SQLite backend", "status tracking"]
+      extract: ["vibe-specific domain context", "phase tracking"]
+
+  vibe_cli:
+    - path: "/Users/daniel.nitsch/ais/projects/vibe/cmd/todo.go"
+      description: "CLI commands for todo management"
+      keep: ["add/list/update/status commands", "filtering", "export/import"]
+
+target_structure:
+  repo_name: "llm-todo"
+  location: "/Users/daniel.nitsch/ais/projects/llm-todo"
+  structure:
+    - "cmd/llm-todo/main.go        # Standalone CLI"
+    - "pkg/todo/manager.go          # Core todo operations"
+    - "pkg/todo/session.go          # Session abstraction"
+    - "pkg/todo/storage.go          # SQLite backend"
+    - "pkg/todo/types.go            # Todo, Session, Priority types"
+    - "examples/vibe-integration/   # How vibe wraps it"
+    - "README.md                    # Usage for humans and LLMs"
+
+core_features:
+  must_have:
+    - name: "Session-scoped tasks"
+      description: "Tasks belong to sessions (project, feature, sprint, etc.)"
+      example: "llm-todo add my-feature p0 'Fix bug' 'Fixing bug'"
+
+    - name: "Priority levels"
+      description: "p0 (must-do) through p4 (nice-to-have)"
+      rationale: "LLMs need to focus on high-value work first"
+
+    - name: "Status tracking"
+      values: ["pending", "in_progress", "completed", "blocked"]
+      transitions: "pending → in_progress → completed OR blocked"
+
+    - name: "Filtering"
+      examples:
+        - "llm-todo list --priority p0"
+        - "llm-todo list --status pending"
+        - "llm-todo list --priority p0 --status pending"
+
+    - name: "Session summary"
+      description: "Show progress overview: p0: 2/5 done, p1: 0/3 done"
+      command: "llm-todo status my-session"
+
+    - name: "Database location options"
+      modes:
+        global: "~/.llm-todo/tasks.db (all sessions)"
+        project: "<project-root>/.llm-todo/tasks.db (project-scoped)"
+      default: "project-scoped (keeps tasks with code)"
+
+  nice_to_have:
+    - name: "Active form tracking"
+      description: "Store gerund form for in-progress display"
+      example: "Task: 'Fix bug' → Active: 'Fixing bug'"
+
+    - name: "Blocking relationships"
+      description: "Task X blocks task Y"
+      use_case: "LLM can identify dependency chains"
+
+    - name: "Effort estimates"
+      description: "Optional time estimate (not required)"
+      values: ["xs", "s", "m", "l", "xl"]
+
+    - name: "Export/Import YAML"
+      use_case: "Share tasks between sessions or backup"
+      commands:
+        - "llm-todo export my-session > tasks.yaml"
+        - "llm-todo import my-session < tasks.yaml"
+
+do_not_implement:
+  no_overengineering:
+    - feature: "Due dates/deadlines"
+      reason: "LLMs work in iterations, not calendar time"
+
+    - feature: "Time tracking"
+      reason: "LLMs don't track hours, humans do"
+
+    - feature: "Assignees/teams"
+      reason: "This is for single LLM sessions, not collaboration"
+
+    - feature: "Tags/labels beyond priority"
+      reason: "Priority (p0-p4) is sufficient, avoid tag soup"
+
+    - feature: "Subtasks/hierarchy"
+      reason: "Keep flat, LLMs break tasks down naturally"
+
+    - feature: "Comments/discussion"
+      reason: "Task description is enough, not a chat system"
+
+    - feature: "Web UI/GUI"
+      reason: "CLI-first for LLM consumption, GUI later if needed"
+
+  no_coupling:
+    - antipattern: "vibe-specific concepts (domain, phase)"
+      solution: "Store as generic session metadata, let vibe interpret"
+
+    - antipattern: "Hardcoded field names (domain, table, entity)"
+      solution: "Generic key-value metadata per session"
+
+    - antipattern: "OpenAPI/schema awareness"
+      solution: "Agnostic to project type (web parser, API, CLI, etc.)"
+
+  no_scope_creep:
+    - antipattern: "Project management features (milestones, sprints)"
+      solution: "Sessions are scopes, don't add PM overhead"
+
+    - antipattern: "Kanban boards, burn-down charts"
+      solution: "Simple list view is enough for LLMs"
+
+    - antipattern: "Notifications, reminders, emails"
+      solution: "LLMs read todo list when needed, no push notifications"
+
+extraction_steps:
+  phase_1_preparation:
+    - step: "Copy pkg/todo from vibe to new llm-todo repo"
+      files: ["manager.go", "types.go", "*.go"]
+
+    - step: "Remove vibe-specific imports"
+      remove: ["vibe/pkg/session", "vibe-specific types"]
+
+    - step: "Make session concept generic"
+      change: "Session has id + metadata map, not domain/phase fields"
+
+  phase_2_standalone_cli:
+    - step: "Create cmd/llm-todo/main.go"
+      commands: ["add", "list", "update", "status", "sessions"]
+
+    - step: "Add database location flag"
+      flags: ["--global", "--project <path>"]
+
+    - step: "Test standalone"
+      verify: "llm-todo works without vibe dependency"
+
+  phase_3_vibe_integration:
+    - step: "Add llm-todo as vibe dependency"
+      import: "github.com/user/llm-todo/pkg/todo"
+
+    - step: "Wrap llm-todo in vibe commands"
+      example: "vibe todo add → calls llm-todo with vibe context"
+
+    - step: "Migrate vibe database"
+      script: "Read old vibe.db, write to llm-todo format"
+
+  phase_4_documentation:
+    - step: "Write README for humans"
+      sections: ["Installation", "Quick Start", "Commands", "Integration"]
+
+    - step: "Write LLM guide"
+      format: "YAML with examples of when/how to use"
+      location: "docs/llm-usage.yaml"
+
+testing_checklist:
+  basic_operations:
+    - "Create session: llm-todo init my-session"
+    - "Add task: llm-todo add my-session p0 'Do thing' 'Doing thing'"
+    - "List tasks: llm-todo list my-session"
+    - "Update status: llm-todo update my-session 1 --status in_progress"
+    - "Show summary: llm-todo status my-session"
+
+  filtering:
+    - "List p0 only: llm-todo list my-session --priority p0"
+    - "List pending: llm-todo list my-session --status pending"
+    - "Combine filters: llm-todo list my-session --priority p0 --status pending"
+
+  multi_session:
+    - "Create 3 sessions with different tasks"
+    - "List all sessions: llm-todo sessions"
+    - "Verify tasks are isolated between sessions"
+
+  vibe_integration:
+    - "vibe todo add wraps llm-todo correctly"
+    - "vibe-specific metadata (domain, phase) stored as generic fields"
+    - "Existing vibe workflows continue working"
+
+success_criteria:
+  technical:
+    - "Zero vibe dependencies in llm-todo"
+    - "Vibe wraps llm-todo, not duplicates it"
+    - "All tests pass in both projects"
+    - "Database schema is project-agnostic"
+
+  usability:
+    - "Can use llm-todo in non-vibe projects"
+    - "LLMs can read llm-todo --help and understand usage"
+    - "Token-efficient (50 tokens per update vs 500 for markdown)"
+    - "Sessions persist across LLM conversations"
+
+  maintenance:
+    - "Single codebase for todo logic"
+    - "Bug fixes benefit all consumers"
+    - "New features added once, available everywhere"
+
+llm_usage_example: |
+  # How an LLM should use llm-todo
+
+  1. Starting work:
+     llm-todo init my-feature
+     llm-todo add my-feature p0 "Fix auth bug" "Fixing auth bug"
+     llm-todo add my-feature p0 "Update tests" "Updating tests"
+     llm-todo add my-feature p1 "Add logging" "Adding logging"
+
+  2. During work:
+     llm-todo start my-feature 1  # Mark first task in progress
+     [do work]
+     llm-todo complete my-feature 1  # Mark done
+     llm-todo start my-feature 2  # Move to next
+
+  3. Check progress:
+     llm-todo status my-feature
+     # Output: p0: 1/2 done, p1: 0/1 done
+
+  4. Resume later:
+     llm-todo list my-feature --status pending
+     # Shows what's left to do
+
+integration_examples:
+  vibe:
+    before: "vibe todo add blog-phase5 p0 'Task' 'Active'"
+    after: "vibe todo add blog-phase5 p0 'Task' 'Active'"
+    implementation: "vibe calls llm-todo.Add(session, priority, task, activeForm, metadata={'domain': 'blog', 'phase': 5})"
+
+  llm_web_parser:
+    current: "YAML files in todo/*.yaml"
+    migration: "llm-todo import web-parser-session < todo.p0.yaml"
+    future: "llm-todo add web-parser p0 'Parse arxiv' 'Parsing arxiv'"
+
+  general_project:
+    usage: "llm-todo init my-cli-tool"
+    benefit: "Works anywhere, not tied to specific project type"
+
+references:
+  existing_implementations:
+    - project: "vibe"
+      path: "/Users/daniel.nitsch/ais/projects/vibe/pkg/todo"
+      notes: "SQLite backend, session model, priority levels"
+
+    - project: "llm-web-parser"
+      path: "/Users/daniel.nitsch/ais/projects/llm-web-parser/todo"
+      notes: "YAML-based, priority split files, queryable with yq"
+
+  inspiration:
+    - tool: "todo.txt"
+      take: "Simple text format, priorities, filters"
+      skip: "Text file storage (use SQLite)"
+
+    - tool: "taskwarrior"
+      take: "CLI-first, filtering, status tracking"
+      skip: "Complexity (projects, tags, contexts, reports)"
+
+notes_for_implementer:
+  - "Read vibe's pkg/todo first to understand current implementation"
+  - "Session abstraction is key - make it generic, not vibe-specific"
+  - "Keep CLI simple - LLMs parse help text, don't overcomplicate"
+  - "Database schema: sessions table + todos table with session_id FK"
+  - "Priorities are strings (p0-p4), not numbers - easier for LLMs"
+  - "Export/import YAML for human inspection and backup"
+  - "Document token efficiency gains in README (motivate adoption)"

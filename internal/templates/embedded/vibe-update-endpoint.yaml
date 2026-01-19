@@ -1,0 +1,87 @@
+name: "vibe-update-endpoint"
+description: "Update existing endpoint workflow"
+tasks:
+  - title: "Identify endpoint location"
+    priority: p0
+    effort: xs
+    files: ["handlers/{domain}/*.go"]
+    instructions:
+      must_do:
+        - "Find the handler file"
+        - "Read existing implementation"
+
+  - title: "Modify handler logic"
+    priority: p0
+    effort: m
+    instructions:
+      must_do:
+        - "Make required changes"
+        - "Preserve existing behavior unless changing intentionally"
+    depends_on: ["task-0"]
+
+  - title: "Update service layer if needed"
+    priority: p0
+    effort: s
+    files: ["domain/{domain}/service.go"]
+    depends_on: ["task-1"]
+
+  - title: "Update repository if needed"
+    priority: p0
+    effort: s
+    files: ["domain/{domain}/repository.go"]
+    depends_on: ["task-2"]
+
+  - title: "Update migration if schema changed"
+    priority: p0
+    effort: s
+    files: ["db/migrations/NNNN_*.sql"]
+    instructions:
+      must_do:
+        - "Create new migration for schema changes"
+        - "Don't modify existing migrations"
+    depends_on: ["task-3"]
+
+  - title: "Update handler tests"
+    priority: p0
+    effort: m
+    files: ["handlers/{domain}/*_test.go"]
+    depends_on: ["task-1"]
+
+  - title: "Update service tests if modified"
+    priority: p0
+    effort: s
+    files: ["domain/{domain}/service_test.go"]
+    depends_on: ["task-2"]
+
+  - title: "Update repository tests if modified"
+    priority: p0
+    effort: s
+    files: ["domain/{domain}/repository_test.go"]
+    depends_on: ["task-3"]
+
+  - title: "Run all tests"
+    priority: p0
+    effort: s
+    instructions:
+      must_do:
+        - "go test ./..."
+        - "Fix any broken tests"
+    depends_on: ["task-5", "task-6", "task-7"]
+
+  - title: "Verify build"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "go build ./cmd/server"
+    depends_on: ["task-8"]
+
+  - title: "Test manually"
+    priority: p0
+    effort: s
+    instructions:
+      must_do:
+        - "Test modified endpoint with curl/Postman"
+        - "Verify old behavior still works (if unchanged)"
+        - "Verify new behavior works"
+    depends_on: ["task-9"]

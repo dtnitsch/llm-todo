@@ -1,0 +1,143 @@
+name: "vibe-crud-db"
+description: "Full CRUD with database (vibe workflow)"
+tasks:
+  - title: "Define schema in YAML"
+    priority: p0
+    effort: xs
+    files: ["domain/{domain}/schema.yaml"]
+
+  - title: "Generate domain types (vibe do phase-1)"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "Run: vibe do phase-1"
+    depends_on: ["task-0"]
+
+  - title: "Create migration file"
+    priority: p0
+    effort: s
+    files: ["db/migrations/NNNN_create_{domain}.sql"]
+    depends_on: ["task-1"]
+
+  - title: "Write UP migration"
+    priority: p0
+    effort: s
+    instructions:
+      must_do:
+        - "CREATE TABLE with all columns"
+        - "Add indexes and constraints"
+    depends_on: ["task-2"]
+
+  - title: "Write DOWN migration"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "DROP TABLE {domain}"
+      must_not_do:
+        - "CRITICAL: Don't forget this - rollback will break!"
+    depends_on: ["task-2"]
+
+  - title: "Run migration (dbmate up)"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "dbmate up"
+        - "Verify migration worked"
+    depends_on: ["task-3", "task-4"]
+
+  - title: "Implement repository layer"
+    priority: p0
+    effort: m
+    files: ["domain/{domain}/repository.go"]
+    instructions:
+      must_do:
+        - "Create, Get, Update, Delete, List methods"
+        - "Handle errors with sentinel values"
+    depends_on: ["task-5"]
+
+  - title: "Implement service layer"
+    priority: p0
+    effort: m
+    files: ["domain/{domain}/service.go"]
+    instructions:
+      must_do:
+        - "Business logic and validation"
+        - "Call repository methods"
+    depends_on: ["task-6"]
+
+  - title: "Implement handlers"
+    priority: p0
+    effort: m
+    files: ["handlers/{domain}/*.go"]
+    instructions:
+      must_do:
+        - "Create, Get, Update, Delete, List handlers"
+        - "Request/response validation"
+    depends_on: ["task-7"]
+
+  - title: "Wire dependencies (CRITICAL)"
+    priority: p0
+    effort: s
+    files: ["cmd/server/wire.go"]
+    instructions:
+      must_do:
+        - "Add provider functions"
+        - "Run: go generate ./cmd/server"
+      must_not_do:
+        - "DON'T FORGET THIS - will cause nil pointer panic at runtime!"
+    depends_on: ["task-8"]
+
+  - title: "Register routes"
+    priority: p0
+    effort: xs
+    files: ["handlers/{domain}/routes.go"]
+    depends_on: ["task-9"]
+
+  - title: "Write repository tests"
+    priority: p1
+    effort: m
+    files: ["domain/{domain}/repository_test.go"]
+    depends_on: ["task-6"]
+
+  - title: "Write service tests"
+    priority: p1
+    effort: m
+    files: ["domain/{domain}/service_test.go"]
+    depends_on: ["task-7"]
+
+  - title: "Write handler integration tests"
+    priority: p1
+    effort: m
+    files: ["handlers/{domain}/*_test.go"]
+    depends_on: ["task-8"]
+
+  - title: "Run all tests (go test ./...)"
+    priority: p0
+    effort: s
+    instructions:
+      must_do:
+        - "go test ./..."
+        - "Fix any failures before continuing"
+    depends_on: ["task-11", "task-12", "task-13"]
+
+  - title: "Verify build (go build ./cmd/server)"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "go build ./cmd/server"
+        - "Ensure clean build"
+    depends_on: ["task-14"]
+
+  - title: "Test manually (curl/Postman)"
+    priority: p0
+    effort: s
+    instructions:
+      must_do:
+        - "Test all CRUD operations"
+        - "Verify error handling"
+        - "Check response formats"
+    depends_on: ["task-15"]

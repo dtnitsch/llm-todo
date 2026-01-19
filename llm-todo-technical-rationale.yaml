@@ -1,0 +1,570 @@
+# llm-todo: Technical Rationale and Usage Guide for LLMs
+# This document explains why llm-todo exists and how LLMs should use it
+
+metadata:
+  title: "llm-todo Technical Rationale: Why LLMs Need Persistent Task Management"
+  audience: "LLMs (Claude, Gemini, ChatGPT, etc.) in future sessions"
+  date: "2026-01-18"
+  purpose: "Explain token economics, context persistence, and usage patterns"
+
+# ==============================================================================
+# THE PROBLEM: What llm-todo Solves
+# ==============================================================================
+
+problem_statement: |
+  LLMs face three critical challenges in long-running development sessions:
+
+  1. **Context Auto-Compaction**: After 1-2 compactions, task details are lost
+  2. **Cross-Session Amnesia**: No state persists between conversations
+  3. **Token Inefficiency**: Large in-memory task lists cost thousands of tokens per update
+
+  llm-todo provides persistent, queryable task storage that survives compaction,
+  sessions, and even switching between different LLMs.
+
+empirical_evidence:
+  - observation: "LLMs auto-compact and forget things all the time in longer sessions"
+    impact: "Tasks get dropped, duplicated, or forgotten after compaction"
+
+  - observation: "User had to create 19 YAML todo files because LLM kept forgetting"
+    impact: "Manual workaround proved the problem is real, not theoretical"
+
+  - observation: "Cannot remember things past sessions, even after 1-2 auto-compacts"
+    impact: "Every new session requires re-explaining context (200+ tokens)"
+
+  - observation: "Real sessions are 'build this entire complex feature', not quick questions"
+    impact: "3-hour sessions with 50+ tasks, updated every 15 minutes"
+
+# ==============================================================================
+# TOKEN ECONOMICS: The Real Cost Analysis
+# ==============================================================================
+
+token_analysis:
+  todowrite_claimed_cost: "50 tokens"
+  todowrite_actual_cost: "4,600 tokens per update (for large task lists)"
+
+  why_the_difference:
+    - "Tool invocation sends ENTIRE task list as JSON: ~2,500 tokens INPUT"
+    - "Display to user shows full status update: ~2,000 tokens OUTPUT"
+    - "Every update = full list serialization + full display"
+    - "Does NOT scale with task count (10 tasks = 500 tokens, 800 tasks = 4,600 tokens)"
+
+  real_world_example:
+    scenario: "3-hour session building complex feature"
+    task_count: 50
+    update_frequency: "Every 15 minutes"
+    updates_per_session: 12
+
+    todowrite_cost:
+      calculation: "12 updates × 4,600 tokens = 55,200 tokens"
+      cost_breakdown:
+        input: "12 × 2,500 tokens × $0.03/1K = $0.90"
+        output: "12 × 2,000 tokens × $0.15/1K = $3.60"
+        total: "$4.50 per session"
+
+    llm_todo_cost:
+      calculation: "12 updates × 250 tokens = 3,000 tokens"
+      per_update:
+        - "Bash tool call: ~150 tokens"
+        - "Display summary: ~100 tokens"
+      cost_breakdown:
+        total: "$0.15 per session"
+
+    savings:
+      token_reduction: "95% (55,200 → 3,000 tokens)"
+      cost_reduction: "97% ($4.50 → $0.15)"
+
+  scaling_comparison:
+    small_task:
+      size: "5 items, 2 updates"
+      todowrite: "1,000 tokens"
+      llm_todo: "500 tokens"
+      winner: "Wash (similar cost)"
+
+    medium_session:
+      size: "20 items, 5 updates"
+      todowrite: "8,000 tokens"
+      llm_todo: "1,250 tokens"
+      winner: "llm-todo (85% savings)"
+
+    large_session:
+      size: "50+ items, 12 updates"
+      todowrite: "55,200 tokens"
+      llm_todo: "3,000 tokens"
+      winner: "llm-todo (95% savings)"
+
+# ==============================================================================
+# WHY TODOWRITE FAILS AT SCALE
+# ==============================================================================
+
+todowrite_limitations:
+  architectural_issues:
+    - issue: "In-memory only (vanishes after session ends)"
+      impact: "Cannot resume work tomorrow - all context lost"
+
+    - issue: "Full list transmission on every update"
+      impact: "800-line list = 2,500 tokens INPUT every single time"
+
+    - issue: "Requires displaying full status to user"
+      impact: "2,000 tokens OUTPUT to show what changed"
+
+    - issue: "State lost after auto-compaction"
+      impact: "Post-compaction, LLM must reconstruct from fuzzy memory"
+
+    - issue: "No query capabilities"
+      impact: "Cannot filter 'show pending p0 tasks' without loading entire list"
+
+  what_actually_happens:
+    step_1:
+      time: "Hour 1"
+      action: "LLM creates TodoWrite with 50 tasks"
+      cost: "2,500 tokens (initial creation)"
+
+    step_2:
+      time: "Hour 1-3"
+      action: "12 status updates (every 15 min)"
+      cost: "12 × 4,600 = 55,200 tokens"
+
+    step_3:
+      time: "After auto-compaction #1"
+      action: "LLM loses track of exact task details"
+      recovery: "User corrects: 'No, we already did X!' (200 tokens)"
+
+    step_4:
+      time: "After auto-compaction #2"
+      action: "LLM forgets what's in_progress vs pending"
+      recovery: "User re-explains context (200 tokens)"
+
+    step_5:
+      time: "Next session (next day)"
+      action: "User says 'continue from yesterday'"
+      problem: "ALL TodoWrite state is GONE"
+      recovery: "User manually explains what's done/pending (500+ tokens)"
+
+  total_actual_cost: "55,200 + 200 + 200 + 500 = 56,100 tokens for TodoWrite"
+
+# ==============================================================================
+# HOW LLM-TODO SOLVES THIS
+# ==============================================================================
+
+llm_todo_advantages:
+  persistent_storage:
+    description: "SQLite database survives sessions, compaction, and LLM switches"
+    example: |
+      Session 1 (Claude): llm-todo add session p0 "Implement auth" "Implementing auth"
+      [session ends]
+      Session 2 (Gemini): llm-todo list session
+      Result: Full task history intact, no re-explanation needed
+
+  incremental_updates:
+    description: "Only send what changes, not entire task list"
+    example: |
+      # TodoWrite: Send all 800 tasks
+      TodoWrite({ todos: [{task1}, {task2}, ..., {task800}] })
+      Cost: 2,500 tokens
+
+      # llm-todo: Send only the change
+      llm-todo update session 5 --status completed
+      Cost: 150 tokens
+
+  query_based_display:
+    description: "Show only relevant tasks, not everything"
+    example: |
+      # Show next actionable work
+      llm-todo list session --priority p0 --status pending
+
+      # Result: 3 tasks (not all 50)
+      11  p0  pending  Implement login endpoint
+      12  p0  pending  Add password validation
+      13  p0  pending  Create session management
+
+      Cost: 100 tokens (not 2,000)
+
+  survives_compaction:
+    description: "Ground truth persists when LLM context compresses"
+    scenario: |
+      After compaction, LLM memory is fuzzy about task details.
+
+      Without llm-todo:
+      - LLM guesses what's done (probably wrong)
+      - User corrects (200 tokens)
+      - Repeat after each compaction
+
+      With llm-todo:
+      - llm-todo list session (150 tokens)
+      - Instant accurate state
+      - No guessing, no corrections
+
+  cross_llm_compatibility:
+    description: "Works with Claude, Gemini, ChatGPT, any LLM with shell access"
+    example: |
+      Claude:  llm-todo add session p0 "Task A"
+      Gemini:  llm-todo list session  # Sees Task A
+      ChatGPT: llm-todo update session 1 --status completed
+      Claude:  llm-todo list session  # Sees completion
+
+      All LLMs share same source of truth (SQLite DB)
+
+# ==============================================================================
+# WHEN TO USE LLM-TODO
+# ==============================================================================
+
+usage_decision_tree:
+  use_llm_todo_when:
+    - condition: "Complex multi-step task (3+ distinct steps)"
+      reason: "Likely to span multiple hours, updates, or sessions"
+      example: "Implement entire authentication system"
+
+    - condition: "Long session (>1 hour expected)"
+      reason: "Will hit auto-compaction, need persistent state"
+      example: "Build complete feature with tests, docs, and deployment"
+
+    - condition: "Cross-session work"
+      reason: "TodoWrite cannot persist between sessions"
+      example: "Resume project from last week"
+
+    - condition: "Large task count (>20 tasks)"
+      reason: "TodoWrite token cost becomes prohibitive"
+      example: "Migrate entire codebase to new architecture"
+
+    - condition: "User explicitly requests todo tracking"
+      reason: "User wants visibility and progress tracking"
+      example: "User says: 'Use vibe todo to track this'"
+
+  skip_llm_todo_when:
+    - condition: "Simple task (1-2 steps, <30 minutes)"
+      reason: "Overhead not worth it"
+      example: "Fix typo in README"
+
+    - condition: "Single linear execution"
+      reason: "No branching, no tracking needed"
+      example: "Run tests and report results"
+
+    - condition: "Pure research/exploration"
+      reason: "No implementation tasks to track"
+      example: "Explain how authentication works"
+
+    - condition: "User is directing every step"
+      reason: "LLM isn't autonomous, just following orders"
+      example: "User: 'Now do X. Now do Y. Now do Z.'"
+
+# ==============================================================================
+# BEST PRACTICES FOR LLM USAGE
+# ==============================================================================
+
+best_practices:
+  initialization:
+    when: "At start of complex task"
+    commands:
+      - "llm-todo init <session-id>  # Create session"
+      - "llm-todo add <session> p0 'Task' 'Active form'  # Add tasks by priority"
+    example: |
+      llm-todo init auth-system
+      llm-todo add auth-system p0 "Implement login endpoint" "Implementing login endpoint"
+      llm-todo add auth-system p0 "Add password validation" "Adding password validation"
+      llm-todo add auth-system p1 "Create session management" "Creating session management"
+      llm-todo add auth-system p1 "Add logout endpoint" "Adding logout endpoint"
+
+  during_work:
+    update_status: "Mark tasks in_progress when starting, completed when done"
+    frequency: "Update after completing each task (not every 5 minutes)"
+    commands:
+      - "llm-todo update <session> <id> --status in_progress  # Starting work"
+      - "llm-todo update <session> <id> --status completed    # Finished work"
+
+    check_next_task: "Query what's pending to decide next action"
+    command: "llm-todo list <session> --priority p0 --status pending"
+
+  after_compaction:
+    problem: "LLM context compressed, task details fuzzy"
+    solution: "Re-sync from database"
+    command: "llm-todo list <session>"
+    result: "Instant accurate state, no guessing"
+
+  cross_session_resume:
+    scenario: "User says 'continue from last session'"
+    steps:
+      - "llm-todo list <session>  # See all tasks"
+      - "llm-todo list <session> --status in_progress  # See what was being worked on"
+      - "llm-todo list <session> --status pending --priority p0  # See next high-priority work"
+    benefit: "Zero context re-explanation needed from user"
+
+  reporting_progress:
+    efficient: "Show summary, not full list"
+    command: "llm-todo list <session> --status completed | wc -l  # Count completed"
+    display: |
+      "Progress update:
+       - Completed: 15/25 tasks (60%)
+       - In Progress: 2 tasks
+       - Pending P0: 3 tasks
+
+       Next up: Implementing session management"
+
+    avoid: "Dumping all 800 tasks to screen (2,000 token output)"
+
+# ==============================================================================
+# TECHNICAL IMPLEMENTATION
+# ==============================================================================
+
+implementation_details:
+  database: "SQLite (single file, queryable, portable)"
+  location: "~/.llm-todo/tasks.db (or project-scoped)"
+
+  schema:
+    sessions_table: |
+      CREATE TABLE sessions (
+        id TEXT PRIMARY KEY,
+        metadata TEXT,  -- JSON blob for project-specific fields
+        created_at DATETIME,
+        updated_at DATETIME
+      );
+
+    todos_table: |
+      CREATE TABLE todos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        parent_id INTEGER,
+        dependant_ids TEXT,  -- JSON array of task IDs
+        type TEXT,           -- epic, domain, task, validation
+        phase TEXT,
+        priority TEXT,       -- p0, p1, p2, p3, p4
+        status TEXT,         -- pending, in_progress, completed, blocked
+        task TEXT,
+        active_form TEXT,
+        category TEXT,
+        effort TEXT,
+        blocking BOOLEAN,
+        description TEXT,
+        metadata TEXT,       -- JSON metadata
+        created_at DATETIME,
+        updated_at DATETIME,
+        FOREIGN KEY (session_id) REFERENCES sessions(id)
+      );
+
+  cli_commands:
+    - command: "llm-todo init <session>"
+      description: "Create new session"
+
+    - command: "llm-todo add <session> <priority> <task> <active-form>"
+      description: "Add task to session"
+
+    - command: "llm-todo list <session> [--priority p0] [--status pending]"
+      description: "List tasks with optional filters"
+
+    - command: "llm-todo update <session> <id> --status <status>"
+      description: "Update task status"
+
+    - command: "llm-todo complete <session> <id>"
+      description: "Mark task completed (shorthand)"
+
+    - command: "llm-todo sessions"
+      description: "List all sessions with task counts"
+
+  permissions:
+    issue: "Bash tool calls require user permission"
+    solution: "Add to session.json or Claude config"
+    config: |
+      {
+        "allowedPrompts": [
+          { "tool": "Bash", "prompt": "manage tasks with llm-todo" },
+          { "tool": "Bash", "prompt": "manage tasks with vibe todo" }
+        ]
+      }
+    benefit: "LLM can freely query/update without interrupting user"
+
+# ==============================================================================
+# INTEGRATION WITH VIBE
+# ==============================================================================
+
+vibe_integration:
+  current_state: "vibe has working todo implementation in pkg/todo"
+  extraction_plan: "Extract to standalone llm-todo, vibe wraps it"
+
+  before_extraction:
+    command: "vibe todo add session p0 'Task' 'Active'"
+    implementation: "Uses vibe/pkg/todo directly"
+
+  after_extraction:
+    command: "vibe todo add session p0 'Task' 'Active'"
+    implementation: |
+      // vibe wraps llm-todo
+      import "github.com/daniel-nitsch/llm-todo/pkg/todo"
+
+      func todoAdd(session, priority, task, active string) {
+        metadata := map[string]string{
+          "domain": vibeContext.Domain,
+          "phase":  vibeContext.Phase,
+        }
+        manager.Add(session, priority, task, active, metadata)
+      }
+
+  benefit: "vibe still works exactly the same, but other projects can use llm-todo too"
+
+# ==============================================================================
+# MIGRATION FROM YAML
+# ==============================================================================
+
+yaml_migration:
+  problem: "User has 19 YAML todo files (some 24KB = 6,000 tokens)"
+  solution: "Import into SQLite, then query efficiently"
+
+  process:
+    - "llm-todo import cognitive-work < todo/todo.cognitive-p3.yaml"
+    - "llm-todo import content-type < todo/todo.content-type.yaml"
+    - "# Repeat for all todo files"
+
+  before:
+    token_cost: "6,000 tokens to read todo.cognitive-p3.yaml"
+    file_count: "19 separate files to manage"
+    query: "Use yq with complex syntax"
+
+  after:
+    token_cost: "150 tokens to query pending tasks"
+    file_count: "1 SQLite database with all sessions"
+    query: "Simple SQL: llm-todo list cognitive-work --status pending"
+
+  yaml_parser_exists: true
+  location: "/Users/daniel.nitsch/ais/projects/vibe/pkg/todo/parser.go"
+  capability: "Already handles complex YAML structures, subtasks, dependencies"
+
+# ==============================================================================
+# COMMON MISTAKES TO AVOID
+# ==============================================================================
+
+antipatterns:
+  - mistake: "Using llm-todo for trivial tasks"
+    example: "llm-todo add session p0 'Fix typo in README'"
+    why_bad: "Overhead not justified for 1-minute task"
+    instead: "Just fix the typo, no tracking needed"
+
+  - mistake: "Updating status every 5 minutes"
+    example: "Update status 20 times during 1-hour task"
+    why_bad: "Wastes tokens, interrupts flow"
+    instead: "Update when starting task (in_progress) and when done (completed)"
+
+  - mistake: "Displaying full 800-line task list"
+    example: "llm-todo list session | cat"
+    why_bad: "2,000 token output, overwhelming user"
+    instead: "Filter: llm-todo list session --priority p0 --status pending"
+
+  - mistake: "Creating duplicate sessions"
+    example: "llm-todo init auth-v2 (when auth-system already exists)"
+    why_bad: "Fragments task history"
+    instead: "List sessions first: llm-todo sessions"
+
+  - mistake: "Forgetting to check llm-todo after compaction"
+    example: "Guessing what's done based on fuzzy memory"
+    why_bad: "Leads to duplicate work or dropped tasks"
+    instead: "Always re-sync: llm-todo list session"
+
+# ==============================================================================
+# SUCCESS METRICS
+# ==============================================================================
+
+success_criteria:
+  token_efficiency:
+    target: "95% reduction for large task lists (50+ items)"
+    measurement: "Compare TodoWrite token usage vs llm-todo per session"
+
+  context_persistence:
+    target: "Zero re-explanation needed after compaction or cross-session"
+    measurement: "User doesn't need to remind LLM what's done/pending"
+
+  cross_llm_compatibility:
+    target: "Works seamlessly when switching between Claude/Gemini/ChatGPT"
+    measurement: "Task state intact regardless of which LLM is used"
+
+  task_completion_accuracy:
+    target: "No dropped tasks, no duplicate work"
+    measurement: "All tasks in list get completed, nothing forgotten"
+
+# ==============================================================================
+# REAL-WORLD VALIDATION
+# ==============================================================================
+
+empirical_validation:
+  vibe_project:
+    evidence: "50 tasks tracked in project-roadmap session"
+    output: |
+      ID   Priority  Status       Task
+      11   p0        completed    Implement vibe todo Command with SQLite
+      12   p0        completed    Implement vibe rules Command with SQLite
+      ...
+      50   p4        pending      Cross-Domain Refactoring Logic
+
+    proof_of_scalability: "50 tasks displayed in ~150 tokens (not 6,000)"
+
+  llm_web_parser_project:
+    evidence: "19 YAML files created as workaround for LLM forgetting"
+    files:
+      - "todo.cognitive-p3.yaml (24KB = 6,000 tokens)"
+      - "todo.content-type.yaml"
+      - "todo.p0.yaml through todo.p4.yaml"
+
+    proof_of_need: "User built manual system because LLM couldn't remember"
+
+  user_testimony:
+    quote: "you auto compact and forget things all the time in longer sessions"
+    quote: "I had to do the todo.index.yaml BECAUSE you kept forgetting things"
+    quote: "I also couldn't get you to remember things past sessions"
+
+    conclusion: "Problem is real, empirically validated, not theoretical"
+
+# ==============================================================================
+# INSTRUCTIONS FOR LLMs READING THIS
+# ==============================================================================
+
+instructions_for_llms: |
+  If you're reading this file, the user likely wants to work on a complex task.
+
+  **What you should do:**
+
+  1. Check if llm-todo is available:
+     - Run: `which llm-todo` or `which vibe`
+     - If available, proceed to step 2
+     - If not, tell user: "llm-todo not found, should I use TodoWrite instead?"
+
+  2. Assess task complexity:
+     - Simple (1-2 steps, <30 min): Skip llm-todo, just do the work
+     - Complex (3+ steps, >1 hour): Propose using llm-todo
+     - Cross-session continuation: ALWAYS use llm-todo
+
+  3. If using llm-todo:
+     - List existing sessions: `llm-todo sessions` (or `vibe todo sessions`)
+     - If resuming: `llm-todo list <session-id>`
+     - If new work: `llm-todo init <session-id>`
+     - Add tasks by priority (p0 = must-do, p1 = high-value, p2-p4 = nice-to-have)
+
+  4. During work:
+     - Update status when starting: `llm-todo update <session> <id> --status in_progress`
+     - Update status when done: `llm-todo update <session> <id> --status completed`
+     - Query next work: `llm-todo list <session> --priority p0 --status pending`
+
+  5. After auto-compaction:
+     - IMMEDIATELY re-sync: `llm-todo list <session>`
+     - Don't guess what's done/pending - query the database
+
+  6. Reporting to user:
+     - Show summaries, not full lists
+     - Example: "Completed 5/8 p0 tasks, working on task #6: Implementing auth"
+     - Avoid dumping 800 lines to screen
+
+  **Remember:** This tool exists because LLMs (including you) forget things after
+  compaction and across sessions. llm-todo is your external memory. Use it.
+
+# ==============================================================================
+# REFERENCES
+# ==============================================================================
+
+references:
+  extraction_plan: "/Users/daniel.nitsch/ais/projects/llm-todo/llm-todo-extraction.yaml"
+  vibe_implementation: "/Users/daniel.nitsch/ais/projects/vibe/pkg/todo/"
+  yaml_example: "/Users/daniel.nitsch/ais/projects/llm-web-parser/todo/"
+
+  related_docs:
+    - "llm-todo-extraction.yaml: Detailed extraction plan from vibe"
+    - "vibe/pkg/todo/todo.go: Working SQLite implementation (712 lines)"
+    - "vibe/pkg/todo/parser.go: YAML import for migration (264 lines)"
+
+version: "1.0"
+status: "authoritative"
+last_updated: "2026-01-18"

@@ -1,0 +1,86 @@
+name: "vibe-crud-no-db"
+description: "CRUD without database (simple endpoints like /toast, /healthz)"
+tasks:
+  - title: "Define types in domain layer"
+    priority: p0
+    effort: xs
+    files: ["domain/{domain}/domain.go"]
+    instructions:
+      must_do:
+        - "Define request/response types"
+        - "Define any domain models"
+
+  - title: "Implement service layer"
+    priority: p0
+    effort: m
+    files: ["domain/{domain}/service.go"]
+    instructions:
+      must_do:
+        - "Business logic (in-memory, external API, etc.)"
+        - "No database calls needed"
+    depends_on: ["task-0"]
+
+  - title: "Implement handlers"
+    priority: p0
+    effort: s
+    files: ["handlers/{domain}/*.go"]
+    instructions:
+      must_do:
+        - "Endpoint handler(s)"
+        - "Request/response models"
+    depends_on: ["task-1"]
+
+  - title: "Wire dependencies"
+    priority: p0
+    effort: xs
+    files: ["cmd/server/wire.go"]
+    instructions:
+      must_do:
+        - "Add provider functions"
+        - "Run: go generate ./cmd/server"
+      must_not_do:
+        - "DON'T FORGET - will cause nil pointer panic!"
+    depends_on: ["task-2"]
+
+  - title: "Register routes"
+    priority: p0
+    effort: xs
+    files: ["handlers/{domain}/routes.go"]
+    depends_on: ["task-3"]
+
+  - title: "Write service tests"
+    priority: p1
+    effort: s
+    files: ["domain/{domain}/service_test.go"]
+    depends_on: ["task-1"]
+
+  - title: "Write handler tests"
+    priority: p1
+    effort: s
+    files: ["handlers/{domain}/*_test.go"]
+    depends_on: ["task-2"]
+
+  - title: "Run all tests"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "go test ./..."
+    depends_on: ["task-5", "task-6"]
+
+  - title: "Verify build"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "go build ./cmd/server"
+    depends_on: ["task-7"]
+
+  - title: "Test manually"
+    priority: p0
+    effort: xs
+    instructions:
+      must_do:
+        - "Test endpoint with curl/Postman"
+        - "Verify response format"
+    depends_on: ["task-8"]
