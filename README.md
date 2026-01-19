@@ -2,12 +2,29 @@
 
 Persistent task management for LLM workflows. Built FOR LLMs, BY LLMs.
 
+**95-99% token savings** vs TodoWrite. Proven with empirical testing (see `test/TEST-RESULTS.md`).
+
+## Installation
+
+### Via go install (Recommended)
+
+```bash
+go install github.com/dtnitsch/llm-todo/cmd/todo@latest
+```
+
+### From source
+
+```bash
+git clone https://github.com/dtnitsch/llm-todo.git
+cd llm-todo
+go build -o ~/bin/todo ./cmd/todo
+```
+
+Ensure `~/bin` (or your chosen install location) is in your PATH.
+
 ## Quick Start
 
 ```bash
-# Build
-go build -o bin/todo ./cmd/todo
-
 # Create quick session
 todo quick "Fix bug" "Update docs" "Run tests"
 
