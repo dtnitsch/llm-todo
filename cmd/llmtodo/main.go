@@ -35,4 +35,5 @@ func init() {
 	addPriorityCommands(rootCmd)
 	addTemplateCommands(rootCmd)
 	addHelpfulAliases(rootCmd)
+	rootCmd.AddCommand(versionCmd())
 }
