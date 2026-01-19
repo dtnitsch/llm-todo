@@ -1,6 +1,7 @@
 # Binaries
 bin/
 /todo
+/llmtodo
 *.exe
 *.dll
 *.so
@@ -9,9 +10,12 @@ bin/
 # Test binaries
 *.test
 todo-test
+llmtodo-test
 
 # Output of the go coverage tool
 *.out
+coverage.txt
+coverage.html
 
 # Databases (local testing)
 *.db
@@ -33,3 +37,7 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Development artifacts (keep templates/ but ignore root-level planning docs)
+/todo/
+*.draft.*
