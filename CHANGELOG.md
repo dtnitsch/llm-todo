@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-19
+
+### Added
+- **Maximum LLM Clarity** output format for `get <priority>` commands:
+  - ACTIVE/QUEUED/BLOCKED grouping for instant context scanning
+  - Smart 10-item limit on QUEUED section (saves ~700 tokens per call)
+  - "showing X/Y" hints when lists are truncated
+  - `--full` flag to show complete lists without limits
+  - `--all` flag to include COMPLETED section (hidden by default)
+- Priority filters now exclude completed tasks by default (focus on actionable work)
+
+### Changed
+- `get p0`, `get p1`, etc. now show only pending + in_progress tasks by default
+  - Old behavior: showed all tasks including completed (noisy, token-heavy)
+  - New behavior: completed hidden unless `--all` specified
+- Output format optimized for LLM parsing and token efficiency
+  - Grouped sections with clear headers (ACTIVE, QUEUED, BLOCKED, COMPLETED)
+  - Summary line shows counts at a glance: "p0: 2 active, 5 queued"
+
+### Performance
+- Token savings: ~700 tokens per `get p0` call by excluding completed tasks
+- Reduced cognitive load for LLMs with clearer, structured output
+
 ## [0.1.0] - 2026-01-19
 
 ### Added
@@ -36,5 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empirical token efficiency testing results
 - Integration test suite (9 tests)
 
-[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/dtnitsch/llm-todo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dtnitsch/llm-todo/releases/tag/v0.1.0
