@@ -8,17 +8,17 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "todo",
+	Use:   "llmtodo",
 	Short: "Persistent task management for LLM workflows",
 	Long: `llm-todo - Token-efficient task management for LLMs
 
 Built FOR LLMs, BY LLMs. Minimal commands, rich structured output.
 
 Examples:
-  todo quick 'Fix bug' 'Update docs' 'Run tests'
-  todo next
-  todo done 3,5,7
-  todo get p0`,
+  llmtodo quick 'Fix bug' 'Update docs' 'Run tests'
+  llmtodo next
+  llmtodo done 3,5,7
+  llmtodo get p0`,
 }
 
 func main() {

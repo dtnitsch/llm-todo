@@ -9,7 +9,7 @@ Persistent task management for LLM workflows. Built FOR LLMs, BY LLMs.
 ### Via go install (Recommended)
 
 ```bash
-go install github.com/dtnitsch/llm-todo/cmd/todo@latest
+go install github.com/dtnitsch/llm-todo/cmd/llmtodo@latest
 ```
 
 ### From source
@@ -17,7 +17,7 @@ go install github.com/dtnitsch/llm-todo/cmd/todo@latest
 ```bash
 git clone https://github.com/dtnitsch/llm-todo.git
 cd llm-todo
-go build -o ~/bin/todo ./cmd/todo
+go build -o ~/bin/llmtodo ./cmd/llmtodo
 ```
 
 Ensure `~/bin` (or your chosen install location) is in your PATH.
@@ -26,23 +26,23 @@ Ensure `~/bin` (or your chosen install location) is in your PATH.
 
 ```bash
 # Create quick session
-todo quick "Fix bug" "Update docs" "Run tests"
+llmtodo quick "Fix bug" "Update docs" "Run tests"
 
 # See next task
-todo next
+llmtodo next
 
 # Complete tasks (batch)
-todo done 1,2,3
+llmtodo done 1,2,3
 
 # List tasks (minimal - saves tokens)
-todo get p0
-todo get pending
+llmtodo get p0
+llmtodo get pending
 
 # Show full details
-todo show 3
+llmtodo show 3
 
 # Check progress
-todo status
+llmtodo status
 ```
 
 ## Features
@@ -56,23 +56,23 @@ todo status
 ## Commands
 
 ### Create Sessions
-- `todo quick <tasks...>` - Quick session (3-5 tasks)
-- `todo code <tasks...>` - Code project (20+ tasks)
-- `todo research <tasks...>` - Research project
+- `llmtodo quick <tasks...>` - Quick session (3-5 tasks)
+- `llmtodo code <tasks...>` - Code project (20+ tasks)
+- `llmtodo research <tasks...>` - Research project
 
 ### Read Tasks
-- `todo get p0` - Minimal list (IDs + titles)
-- `todo get pending` - All pending tasks
-- `todo show 3` - Full details for task #3
-- `todo next` - Next task with full details
-- `todo` or `todo status` - Progress summary
+- `llmtodo get p0` - Minimal list (IDs + titles)
+- `llmtodo get pending` - All pending tasks
+- `llmtodo show 3` - Full details for task #3
+- `llmtodo next` - Next task with full details
+- `llmtodo` or `llmtodo status` - Progress summary
 
 ### Update Tasks
-- `todo done` - Complete current task
-- `todo done 3,5,7` - Batch complete
-- `todo block 2,4 "reason"` - Batch block
-- `todo note 3 "context"` - Add note
-- `todo priority 4 50` - Reorder task
+- `llmtodo done` - Complete current task
+- `llmtodo done 3,5,7` - Batch complete
+- `llmtodo block 2,4 "reason"` - Batch block
+- `llmtodo note 3 "context"` - Add note
+- `llmtodo priority 4 50` - Reorder task
 
 ## Database
 
@@ -84,7 +84,7 @@ todo status
 Clean separation, no files over 500 lines:
 
 ```
-cmd/todo/          # CLI commands
+cmd/llmtodo/          # CLI commands
 internal/db/       # Database layer
 internal/todo/     # Core logic
 internal/formatter/# Conditional output

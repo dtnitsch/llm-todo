@@ -6,17 +6,17 @@ This project tracks its own tasks using llm-todo. Use these commands:
 
 ```bash
 # See what to work on
-todo next
+llmtodo next
 
 # Check progress
-todo status
+llmtodo status
 
 # Complete tasks
-todo done 1,2,3
+llmtodo done 1,2,3
 
 # Search for specific work
-todo search "template"
-todo find "alias"
+llmtodo search "template"
+llmtodo find "alias"
 ```
 
 ## Current Session
