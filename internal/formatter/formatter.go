@@ -16,12 +16,7 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 	session := output.Session
 
 	// Header with task ID
-	b.WriteString(fmt.Sprintf("🎯 NEXT: %s (#%d)\n", task.Task, task.ID))
-
-	// Show session context if available
-	if session != nil && session.Goal != "" {
-		b.WriteString(fmt.Sprintf("Session: %s (%s) - %s\n", session.ID, session.Type, session.Goal))
-	}
+	b.WriteString(fmt.Sprintf("NEXT: %s (#%d)\n", task.Task, task.ID))
 
 	// Metadata line (priority | effort | files)
 	var metaParts []string
@@ -45,24 +40,27 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 
 	// SUGGESTIONS (if any)
 	if len(suggestions) > 0 {
-		b.WriteString("💡 SUGGESTIONS:\n")
+		b.WriteString("SUGGESTIONS:\n")
 		for _, sug := range suggestions {
-			b.WriteString(fmt.Sprintf("  • %s\n", sug.Message))
+			b.WriteString(fmt.Sprintf("  - %s\n", sug.Message))
 		}
 		b.WriteString("\n")
 	}
 
 	// INSTRUCTIONS (must_do / must_not_do) - compact format
+	hasInstructions := false
 	if task.Instructions != "" {
 		var instructions map[string][]string
 		if err := json.Unmarshal([]byte(task.Instructions), &instructions); err == nil {
 			if mustDo := instructions["must_do"]; len(mustDo) > 0 {
+				hasInstructions = true
 				for _, item := range mustDo {
 					b.WriteString(fmt.Sprintf("  - %s\n", item))
 				}
 				b.WriteString("\n")
 			}
 			if mustNotDo := instructions["must_not_do"]; len(mustNotDo) > 0 {
+				hasInstructions = true
 				b.WriteString("MUST NOT:\n")
 				for _, item := range mustNotDo {
 					b.WriteString(fmt.Sprintf("  ✗ %s\n", item))
@@ -70,6 +68,12 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 				b.WriteString("\n")
 			}
 		}
+	}
+
+	// Show session context as fallback when no instructions
+	if !hasInstructions && session != nil && session.Goal != "" {
+		b.WriteString(fmt.Sprintf("Session: %s - %s\n", session.ID, session.Goal))
+		b.WriteString("Session details: llmtodo session\n\n")
 	}
 
 	// REFS (research mode)
@@ -86,21 +90,21 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 
 	// WAITING_ON (research mode)
 	if task.WaitingOn != "" {
-		b.WriteString(fmt.Sprintf("⏳ WAITING ON: %s\n\n", task.WaitingOn))
+		b.WriteString(fmt.Sprintf("WAITING ON: %s\n\n", task.WaitingOn))
 	}
 
 	// OUTPUT/AUDIENCE (deliverable mode)
 	if task.Output != "" {
-		b.WriteString(fmt.Sprintf("📤 OUTPUT: %s\n", task.Output))
+		b.WriteString(fmt.Sprintf("OUTPUT: %s\n", task.Output))
 		if task.Audience != "" {
-			b.WriteString(fmt.Sprintf("👥 AUDIENCE: %s\n", task.Audience))
+			b.WriteString(fmt.Sprintf("AUDIENCE: %s\n", task.Audience))
 		}
 		b.WriteString("\n")
 	}
 
 	// NOTES
 	if task.Notes != "" {
-		b.WriteString(fmt.Sprintf("💡 NOTES:\n%s\n\n", task.Notes))
+		b.WriteString(fmt.Sprintf("NOTES:\n%s\n\n", task.Notes))
 	}
 
 	// Footer - show specific command with task ID

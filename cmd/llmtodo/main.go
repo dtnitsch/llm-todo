@@ -36,6 +36,11 @@ TASK QUERYING:
                (aliases: find)
   status       Session progress summary
 
+SESSION MANAGEMENT:
+  session      View/update session goal: llmtodo session goal "Build API"
+  sessions     List all sessions with progress
+  use          Switch to a different session: llmtodo use <session-id>
+
 COMMON PATTERNS:
   llmtodo next              # See what to work on
   llmtodo done              # Complete current task (no ID needed)
