@@ -33,10 +33,12 @@ func nextCmd() *cobra.Command {
 				return err
 			}
 
+			session, _ := mgr.GetSession(sessionID)
 			stats, _ := mgr.GetStats(sessionID)
 
 			output := &todo.NextOutput{
 				Task:           task,
+				Session:        session,
 				TotalTasks:     stats["total"],
 				CompletedTasks: stats["completed"],
 			}

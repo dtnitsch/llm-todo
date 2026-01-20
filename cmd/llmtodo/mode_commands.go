@@ -15,47 +15,105 @@ func addModeCommands(root *cobra.Command) {
 }
 
 func quickCmd() *cobra.Command {
-	return &cobra.Command{
+	var goal string
+
+	cmd := &cobra.Command{
 		Use:   "quick <task1> <task2> ...",
 		Short: "Create quick session (3-5 tasks)",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := filepath.Base(mustGetwd())
-			return createSessionWithTasks(sessionID, "quick", args)
+			err := createSessionWithMetadata(sessionID, "quick", args, goal, "", "", "")
+			if err != nil {
+				return err
+			}
+
+			// Show suggestion if goal not provided
+			if goal == "" {
+				printGoalSuggestion(sessionID)
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&goal, "goal", "g", "", "Session context (why these tasks exist)")
+	return cmd
 }
 
 func codeCmd() *cobra.Command{
-	return &cobra.Command{
+	var goal, boundaries, successCriteria string
+	var skipPrompt bool
+
+	cmd := &cobra.Command{
 		Use:   "code <task1> <task2> ...",
 		Short: "Create code project session (20+ tasks)",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := filepath.Base(mustGetwd())
 
-			// Prompt for code session metadata
-			goal, boundaries, successCriteria := promptCodeSession()
+			// If flags not provided and not skipping prompt, prompt interactively
+			if !skipPrompt && goal == "" {
+				goal, boundaries, successCriteria = promptCodeSession()
+			}
 
-			return createSessionWithMetadata(sessionID, "code", args, goal, boundaries, successCriteria, "")
+			err := createSessionWithMetadata(sessionID, "code", args, goal, boundaries, successCriteria, "")
+			if err != nil {
+				return err
+			}
+
+			// Show suggestion if goal still not provided
+			if goal == "" {
+				printGoalSuggestion(sessionID)
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&goal, "goal", "g", "", "Session context (why these tasks exist)")
+	cmd.Flags().StringVar(&boundaries, "boundaries", "", "What's out of scope")
+	cmd.Flags().StringVar(&successCriteria, "success", "", "Success criteria")
+	cmd.Flags().BoolVar(&skipPrompt, "skip-prompt", false, "Skip interactive prompts")
+
+	return cmd
 }
 
 func researchCmd() *cobra.Command {
-	return &cobra.Command{
+	var goal, deliverables string
+	var skipPrompt bool
+
+	cmd := &cobra.Command{
 		Use:   "research <task1> <task2> ...",
 		Short: "Create research project session",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sessionID := filepath.Base(mustGetwd())
 
-			// Prompt for research session metadata
-			goal, deliverables := promptResearchSession()
+			// If flags not provided and not skipping prompt, prompt interactively
+			if !skipPrompt && goal == "" {
+				goal, deliverables = promptResearchSession()
+			}
 
-			return createSessionWithMetadata(sessionID, "research", args, goal, "", "", deliverables)
+			err := createSessionWithMetadata(sessionID, "research", args, goal, "", "", deliverables)
+			if err != nil {
+				return err
+			}
+
+			// Show suggestion if goal still not provided
+			if goal == "" {
+				printGoalSuggestion(sessionID)
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&goal, "goal", "g", "", "Session context (why these tasks exist)")
+	cmd.Flags().StringVar(&deliverables, "deliverables", "", "Expected deliverables")
+	cmd.Flags().BoolVar(&skipPrompt, "skip-prompt", false, "Skip interactive prompts")
+
+	return cmd
 }
 
 func createSessionWithTasks(sessionID, sessionType string, tasks []string) error {

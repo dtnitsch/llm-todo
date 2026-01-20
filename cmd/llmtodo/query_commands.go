@@ -124,8 +124,5 @@ func statusCmd() *cobra.Command {
 		},
 	}
 
-	// Default run when no args (alias for status)
-	rootCmd.RunE = cmd.RunE
-
 	return cmd
 }

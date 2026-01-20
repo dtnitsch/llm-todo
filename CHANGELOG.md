@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-19
+
+### Added
+- **Session Goal/Context Feature** for cold-start LLM sessions:
+  - `--goal` flag for `quick`, `code`, and `research` commands
+  - `llmtodo session` command to view current session context
+  - `llmtodo session goal "<text>"` to set/update session goal
+  - Session goal displayed in `next` output when available
+  - YAML import now supports top-level `goal:` field
+  - Educational post-creation message when goal is missing:
+    - Explains WHY session context matters (cold-start sessions)
+    - Shows exact command to add context
+    - Includes example goal text
+- Non-interactive flags for LLM usage:
+  - `--skip-prompt` flag for `code` and `research` commands
+  - `--boundaries` and `--success` flags for `code` command
+  - `--deliverables` flag for `research` command
+
+### Changed
+- `quick/code/research` commands now suggest adding session goal if not provided
+- `import` command checks for goal in YAML and updates session automatically
+- `next` output shows session context as fallback when task instructions are sparse
+
+### Benefits
+- Solves cold-start problem: LLMs can understand project context across sessions
+- Reduces need for verbose task instructions when session goal provides umbrella context
+- Token-efficient: session goal shared across all tasks vs repeating context per-task
+
 ## [0.2.0] - 2026-01-19
 
 ### Added
@@ -59,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empirical token efficiency testing results
 - Integration test suite (9 tests)
 
-[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/dtnitsch/llm-todo/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dtnitsch/llm-todo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dtnitsch/llm-todo/releases/tag/v0.1.0

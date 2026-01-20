@@ -13,29 +13,46 @@ import (
 
 // YAMLTask represents a task in YAML format
 type YAMLTask struct {
-	ID           string            `yaml:"id"`
-	Title        string            `yaml:"title"`
-	Type         string            `yaml:"type,omitempty"`
-	Priority     string            `yaml:"priority,omitempty"`
-	Status       string            `yaml:"status,omitempty"`
-	Effort       string            `yaml:"effort,omitempty"`
-	Description  string            `yaml:"description,omitempty"`
-	DependsOn    []string          `yaml:"depends_on,omitempty"`
+	ID           string              `yaml:"id"`
+	Title        string              `yaml:"title"`
+	Type         string              `yaml:"type,omitempty"`
+	Priority     string              `yaml:"priority,omitempty"`
+	Status       string              `yaml:"status,omitempty"`
+	Effort       string              `yaml:"effort,omitempty"`
+	Description  string              `yaml:"description,omitempty"`
+	DependsOn    []string            `yaml:"depends_on,omitempty"`
 	Instructions map[string][]string `yaml:"instructions,omitempty"`
-	Files        []string          `yaml:"files,omitempty"`
-	Refs         []string          `yaml:"refs,omitempty"`
+	Files        []string            `yaml:"files,omitempty"`
+	Refs         []string            `yaml:"refs,omitempty"`
 }
 
-// ImportFromYAML imports tasks from a YAML file
-func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, error) {
+// YAMLFile represents the top-level YAML file structure
+type YAMLFile struct {
+	Goal  string     `yaml:"goal,omitempty"`
+	Tasks []YAMLTask `yaml:"tasks,omitempty"`
+}
+
+// ImportFromYAML imports tasks from a YAML file and returns (count, goal, error)
+func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to read file: %w", err)
+		return 0, "", fmt.Errorf("failed to read file: %w", err)
 	}
 
+	// Try parsing as YAMLFile first (new format with goal)
+	var yamlFile YAMLFile
 	var tasks []YAMLTask
-	if err := yaml.Unmarshal(data, &tasks); err != nil {
-		return 0, fmt.Errorf("failed to parse YAML: %w", err)
+	var goal string
+
+	if err := yaml.Unmarshal(data, &yamlFile); err == nil && len(yamlFile.Tasks) > 0 {
+		// New format with goal
+		tasks = yamlFile.Tasks
+		goal = yamlFile.Goal
+	} else {
+		// Fallback: try parsing as array of tasks (old format)
+		if err := yaml.Unmarshal(data, &tasks); err != nil {
+			return 0, "", fmt.Errorf("failed to parse YAML: %w", err)
+		}
 	}
 
 	// Extract priority from filename (e.g., todo.p0.yaml -> p0)
@@ -60,7 +77,7 @@ func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, error) 
 
 		id, err := mgr.CreateTask(task)
 		if err != nil {
-			return count, fmt.Errorf("failed to create task: %w", err)
+			return count, goal, fmt.Errorf("failed to create task: %w", err)
 		}
 
 		if yamlTask.ID != "" {
@@ -70,28 +87,34 @@ func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, error) 
 		count++
 	}
 
-	return count, nil
+	return count, goal, nil
 }
 
 // ImportFromDirectory imports all YAML files from a directory
-func ImportFromDirectory(mgr *todo.Manager, sessionID, dirPath string) (int, error) {
+func ImportFromDirectory(mgr *todo.Manager, sessionID, dirPath string) (int, string, error) {
 	files := []string{"todo.p0.yaml", "todo.p1.yaml", "todo.p2.yaml", "todo.p3.yaml", "todo.p4.yaml"}
 
 	totalCount := 0
+	var firstGoal string
 	for _, file := range files {
 		filePath := filepath.Join(dirPath, file)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			continue
 		}
 
-		count, err := ImportFromYAML(mgr, sessionID, filePath)
+		count, goal, err := ImportFromYAML(mgr, sessionID, filePath)
 		if err != nil {
-			return totalCount, err
+			return totalCount, firstGoal, err
 		}
 		totalCount += count
+
+		// Keep the first non-empty goal we find
+		if firstGoal == "" && goal != "" {
+			firstGoal = goal
+		}
 	}
 
-	return totalCount, nil
+	return totalCount, firstGoal, nil
 }
 
 func convertYAMLTask(yamlTask YAMLTask, sessionID string, idMap map[string]int64) *todo.Task {

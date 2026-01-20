@@ -36,19 +36,20 @@ func importCmd() *cobra.Command {
 			}
 
 			// Ensure session exists
-			_, err = mgr.GetOrCreateSession(sessionID, "code")
+			session, err := mgr.GetOrCreateSession(sessionID, "code")
 			if err != nil {
 				return err
 			}
 
 			var count int
+			var goal string
 
 			// Import from directory
 			if dir != "" {
-				count, err = importer.ImportFromDirectory(mgr, sessionID, dir)
+				count, goal, err = importer.ImportFromDirectory(mgr, sessionID, dir)
 			} else if len(args) > 0 {
 				// Import single file
-				count, err = importer.ImportFromYAML(mgr, sessionID, args[0])
+				count, goal, err = importer.ImportFromYAML(mgr, sessionID, args[0])
 			} else {
 				return fmt.Errorf("provide file path or --dir")
 			}
@@ -57,12 +58,28 @@ func importCmd() *cobra.Command {
 				return err
 			}
 
+			// Update session goal if found in YAML
+			if goal != "" {
+				updates := map[string]interface{}{"goal": goal}
+				if err := mgr.UpdateSession(sessionID, updates); err != nil {
+					return err
+				}
+			}
+
 			fmt.Printf("✓ Imported %d tasks into session: %s\n", count, sessionID)
+			if goal != "" {
+				fmt.Printf("  Goal: %s\n", goal)
+			}
 
 			stats, _ := mgr.GetStats(sessionID)
 			fmt.Printf("\nSession stats:\n")
 			fmt.Printf("  Total: %d\n", stats["total"])
 			fmt.Printf("  Pending: %d\n", stats["pending"])
+
+			// Show suggestion if goal not in YAML and not already in session
+			if goal == "" && session.Goal == "" {
+				printGoalSuggestion(sessionID)
+			}
 
 			return nil
 		},

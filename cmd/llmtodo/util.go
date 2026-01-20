@@ -59,3 +59,15 @@ func generateActiveForm(title string) string {
 
 	return "Working on: " + title
 }
+
+// printGoalSuggestion prints a helpful message suggesting to add session context
+func printGoalSuggestion(sessionID string) {
+	println()
+	println("💡 Tip: Add session context for future cold-start sessions")
+	println("   llmtodo session goal \"" + sessionID + "\" \"Brief description of what we're building/fixing\"")
+	println()
+	println("   Why? When you (or an LLM) returns to this project weeks later,")
+	println("   session context helps understand what these tasks are for.")
+	println("   Example: \"Refactor auth system to support OAuth2\"")
+	println()
+}

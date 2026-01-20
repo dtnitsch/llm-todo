@@ -11,6 +11,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(sessionsCmd())
+	rootCmd.AddCommand(sessionCmd())
 	rootCmd.AddCommand(useCmd())
 }
 
@@ -68,6 +69,123 @@ func sessionsCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func sessionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "session [show|goal]",
+		Short: "View or update session context",
+		Example: `  todo session                              # Show current session
+  todo session show llm-todo                # Show specific session
+  todo session goal "Refactor auth system"  # Set goal for current session
+  todo session goal llm-todo "Build API"    # Set goal for specific session`,
+		Args: cobra.MaximumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// No args: show current session
+			if len(args) == 0 {
+				return showCurrentSession()
+			}
+
+			// First arg is subcommand
+			subcommand := args[0]
+
+			switch subcommand {
+			case "show":
+				if len(args) < 2 {
+					return showCurrentSession()
+				}
+				return showSession(args[1])
+
+			case "goal":
+				if len(args) < 2 {
+					return fmt.Errorf("usage: todo session goal [session-id] \"<goal>\"")
+				}
+
+				// Check if second arg is session ID or goal
+				sessionID := getSessionID()
+				goalText := args[1]
+
+				// If 3 args, first is session ID, second is goal
+				if len(args) == 3 {
+					sessionID = args[1]
+					goalText = args[2]
+				}
+
+				return setSessionGoal(sessionID, goalText)
+
+			default:
+				return fmt.Errorf("unknown subcommand: %s", subcommand)
+			}
+		},
+	}
+
+	return cmd
+}
+
+func showCurrentSession() error {
+	sessionID := getSessionID()
+	return showSession(sessionID)
+}
+
+func showSession(sessionID string) error {
+	mgr, err := todo.NewManager("")
+	if err != nil {
+		return err
+	}
+	defer mgr.Close()
+
+	session, err := mgr.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+
+	stats, _ := mgr.GetStats(sessionID)
+
+	fmt.Printf("Session: %s (%s)\n", session.ID, session.Type)
+	if session.Goal != "" {
+		fmt.Printf("Goal: %s\n", session.Goal)
+	} else {
+		fmt.Printf("Goal: (not set)\n")
+	}
+
+	if session.SuccessCriteria != "" {
+		fmt.Printf("Success criteria: %s\n", session.SuccessCriteria)
+	}
+
+	fmt.Printf("\nProgress:\n")
+	fmt.Printf("  Total: %d\n", stats["total"])
+	fmt.Printf("  Completed: %d\n", stats["completed"])
+	fmt.Printf("  In Progress: %d\n", stats["in_progress"])
+	fmt.Printf("  Pending: %d\n", stats["pending"])
+	if stats["blocked"] > 0 {
+		fmt.Printf("  Blocked: %d\n", stats["blocked"])
+	}
+
+	return nil
+}
+
+func setSessionGoal(sessionID, goal string) error {
+	mgr, err := todo.NewManager("")
+	if err != nil {
+		return err
+	}
+	defer mgr.Close()
+
+	// Verify session exists
+	_, err = mgr.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+
+	// Update goal
+	updates := map[string]interface{}{"goal": goal}
+	if err := mgr.UpdateSession(sessionID, updates); err != nil {
+		return err
+	}
+
+	fmt.Printf("✓ Updated goal for session: %s\n", sessionID)
+	fmt.Printf("  Goal: %s\n", goal)
+	return nil
 }
 
 func useCmd() *cobra.Command {

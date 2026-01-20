@@ -13,11 +13,35 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 	var b strings.Builder
 
 	task := output.Task
+	session := output.Session
 
-	// Header
-	completed := output.CompletedTasks
-	total := output.TotalTasks
-	b.WriteString(fmt.Sprintf("🎯 NEXT: %s (task %d/%d)\n\n", task.Task, completed+1, total))
+	// Header with task ID
+	b.WriteString(fmt.Sprintf("🎯 NEXT: %s (#%d)\n", task.Task, task.ID))
+
+	// Show session context if available
+	if session != nil && session.Goal != "" {
+		b.WriteString(fmt.Sprintf("Session: %s (%s) - %s\n", session.ID, session.Type, session.Goal))
+	}
+
+	// Metadata line (priority | effort | files)
+	var metaParts []string
+	if task.Priority != "" {
+		metaParts = append(metaParts, task.Priority)
+	}
+	if task.Effort != "" {
+		metaParts = append(metaParts, fmt.Sprintf("est: %s", task.Effort))
+	}
+	if task.Files != "" && task.Files != "[]" {
+		var files []string
+		if err := json.Unmarshal([]byte(task.Files), &files); err == nil && len(files) > 0 {
+			metaParts = append(metaParts, strings.Join(files, ", "))
+		}
+	}
+	if len(metaParts) > 0 {
+		b.WriteString(strings.Join(metaParts, " | "))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
 
 	// SUGGESTIONS (if any)
 	if len(suggestions) > 0 {
@@ -28,14 +52,13 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 		b.WriteString("\n")
 	}
 
-	// INSTRUCTIONS (must_do / must_not_do)
+	// INSTRUCTIONS (must_do / must_not_do) - compact format
 	if task.Instructions != "" {
 		var instructions map[string][]string
 		if err := json.Unmarshal([]byte(task.Instructions), &instructions); err == nil {
 			if mustDo := instructions["must_do"]; len(mustDo) > 0 {
-				b.WriteString("INSTRUCTIONS:\n")
 				for _, item := range mustDo {
-					b.WriteString(fmt.Sprintf("  ✓ %s\n", item))
+					b.WriteString(fmt.Sprintf("  - %s\n", item))
 				}
 				b.WriteString("\n")
 			}
@@ -46,14 +69,6 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 				}
 				b.WriteString("\n")
 			}
-		}
-	}
-
-	// FILES
-	if task.Files != "" && task.Files != "[]" {
-		var files []string
-		if err := json.Unmarshal([]byte(task.Files), &files); err == nil && len(files) > 0 {
-			b.WriteString(fmt.Sprintf("FILES: %s\n\n", strings.Join(files, ", ")))
 		}
 	}
 
@@ -88,8 +103,8 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 		b.WriteString(fmt.Sprintf("💡 NOTES:\n%s\n\n", task.Notes))
 	}
 
-	// Footer
-	b.WriteString("After completing: todo done\n")
+	// Footer - show specific command with task ID
+	b.WriteString(fmt.Sprintf("llmtodo done %d\n", task.ID))
 
 	return b.String()
 }

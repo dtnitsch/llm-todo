@@ -42,6 +42,7 @@ type Task struct {
 // NextOutput represents the structured output for 'todo next'
 type NextOutput struct {
 	Task           *Task
+	Session        *Session
 	TotalTasks     int
 	CompletedTasks int
 	Instructions   []string
