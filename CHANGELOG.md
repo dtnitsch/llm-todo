@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-01-19
+
+### Added
+- **Task Enrichment System** for cold-start LLM sessions:
+  - 5-type enrichment scoring (0-5 scale): instructions, files, output, context, dependencies
+  - `llmtodo enrich <task-id>` command with non-blocking flag-based interface
+  - `--must-do` and `--must-not` flags for actionable instructions
+  - `--files` for related file paths
+  - `--output` for concrete deliverables
+  - `--notes` for WHY context (with `--replace-notes` flag)
+  - `--deps` for prerequisite task dependencies
+  - `llmtodo enrich <id> --status` shows enrichment completeness (X/5)
+  - `llmtodo enrich <id> --suggest` provides specific enrichment examples
+  - Session enrichment via `llmtodo enrich --session` with `--goal`, `--boundaries`, `--success` flags
+- **LLM-Friendly Guidelines** embedded in enrichment hints:
+  - Concise > verbose (no prose)
+  - Imperative > descriptive
+  - Factual > emotional
+  - No emojis, no past-tense storytelling
+  - Context answers WHY, not WHAT was built
+
+### Changed
+- **Cleaner output for LLM consumption**:
+  - Removed emojis from enrichment hints and suggestions
+  - Changed "Tip:" to "RECOMMEND:" (directive instead of suggestion)
+  - Simplified task creation output (removed checkmarks, made commands explicit)
+  - Session goal suggestion now concise and factual
+- **Enrichment hint examples** now show style guidelines:
+  - Instructions: "Concise action item" (not generic "item1")
+  - Context: "Why this task exists" (not generic "context")
+  - Output: "Concrete deliverable" (not generic "description")
+
+### Benefits
+- Stateless LLMs can orient on tasks without conversation history
+- Task enrichment persists across sessions (unlike TodoWrite)
+- Enrichment hints teach users how to write LLM-friendly context
+- 95%+ token savings vs TodoWrite while maintaining context quality
+- Session + task enrichment provides two-tier orientation (project-level + task-level)
+
 ## [0.4.0] - 2026-01-19
 
 ### Added
@@ -129,7 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empirical token efficiency testing results
 - Integration test suite (9 tests)
 
-[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/dtnitsch/llm-todo/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dtnitsch/llm-todo/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dtnitsch/llm-todo/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dtnitsch/llm-todo/compare/v0.1.0...v0.2.0

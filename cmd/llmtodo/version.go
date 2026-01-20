@@ -7,8 +7,8 @@ import (
 )
 
 // version is set via -ldflags at build time
-// Example: go build -ldflags "-X main.version=v0.4.0"
-var version = "v0.4.0"
+// Example: go build -ldflags "-X main.version=v0.5.0"
+var version = "v0.5.0"
 
 func versionCmd() *cobra.Command {
 	return &cobra.Command{

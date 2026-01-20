@@ -26,6 +26,7 @@ TASK WORKFLOW:
   done         Complete tasks: llmtodo done 1,2,3
   block        Block tasks: llmtodo block 5 "reason"
   note         Add notes: llmtodo note 5 "context"
+  enrich       Add detailed instructions: llmtodo enrich 1,2,3
 
 TASK QUERYING:
   get          List tasks: llmtodo get p0|p1|pending|blocked

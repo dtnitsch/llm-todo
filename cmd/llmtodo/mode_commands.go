@@ -153,18 +153,19 @@ func createSessionWithMetadata(sessionID, sessionType string, tasks []string, go
 		}
 	}
 
-	fmt.Printf("✓ Session: %s (%s)\n", session.ID, session.Type)
+	fmt.Printf("Session: %s (%s)\n", session.ID, session.Type)
 	if goal != "" {
-		fmt.Printf("  Goal: %s\n", goal)
+		fmt.Printf("Goal: %s\n", goal)
 	}
 	if boundaries != "" {
-		fmt.Printf("  Boundaries: %s\n", boundaries)
+		fmt.Printf("Boundaries: %s\n", boundaries)
 	}
 	if deliverables != "" {
-		fmt.Printf("  Deliverables: %s\n", deliverables)
+		fmt.Printf("Deliverables: %s\n", deliverables)
 	}
 
 	fmt.Println()
+	fmt.Printf("Created %d tasks:\n", len(tasks))
 	for i, taskTitle := range tasks {
 		task := &todo.Task{
 			SessionID:     sessionID,
@@ -183,6 +184,6 @@ func createSessionWithMetadata(sessionID, sessionType string, tasks []string, go
 		fmt.Printf("  %d. %s\n", id, taskTitle)
 	}
 
-	fmt.Printf("\nNext: todo next\n")
+	fmt.Printf("\nRun: llmtodo next\n")
 	return nil
 }
