@@ -134,3 +134,24 @@ func (m *Manager) GetNextTask(sessionID string) (*Task, error) {
 
 	return tasks[0], nil
 }
+
+// GetUpcomingTasks returns the next N pending tasks after the current one
+func (m *Manager) GetUpcomingTasks(sessionID string, limit int) ([]*Task, error) {
+	tasks, err := m.ListTasks(sessionID, map[string]string{"status": "pending"})
+	if err != nil {
+		return nil, err
+	}
+
+	// Skip the first task (that's the "current" one returned by GetNextTask)
+	// Return the next N tasks
+	if len(tasks) <= 1 {
+		return []*Task{}, nil
+	}
+
+	end := len(tasks)
+	if len(tasks) > limit+1 {
+		end = limit + 1
+	}
+
+	return tasks[1:end], nil
+}

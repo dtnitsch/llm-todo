@@ -122,6 +122,19 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 		b.WriteString(fmt.Sprintf("NOTES:\n%s\n\n", task.Notes))
 	}
 
+	// UPCOMING TASKS (show next 2-3 tasks)
+	if len(output.UpcomingTasks) > 0 {
+		b.WriteString("UPCOMING:\n")
+		for _, upcoming := range output.UpcomingTasks {
+			b.WriteString(fmt.Sprintf("  %d. %s", upcoming.ID, upcoming.Task))
+			if upcoming.Priority != "" && upcoming.Priority != "p1" {
+				b.WriteString(fmt.Sprintf(" (%s)", upcoming.Priority))
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+
 	// Footer - show specific command with task ID
 	b.WriteString(fmt.Sprintf("llmtodo done %d\n", task.ID))
 

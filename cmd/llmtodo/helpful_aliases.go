@@ -22,6 +22,17 @@ func addHelpfulAliases(root *cobra.Command) {
 	root.AddCommand(extractCmd())
 	root.AddCommand(analyzeCmd())
 
+	// Export/template aliases
+	root.AddCommand(dumpCmd())
+	root.AddCommand(saveCmd())
+	root.AddCommand(backupCmd())
+	root.AddCommand(importTemplateCmd())
+	root.AddCommand(formatCmd())
+	root.AddCommand(exampleCmd())
+	root.AddCommand(scaffoldCmd())
+	root.AddCommand(initCmd())
+	root.AddCommand(setupCmd())
+
 	// Helpful redirects (commands that don't map directly)
 	root.AddCommand(updateHelpCmd())
 	root.AddCommand(deleteHelpCmd())
@@ -278,6 +289,122 @@ For detailed analysis: todo status`,
 				args = []string{"pending"}
 			}
 			return getCmd().RunE(cmd, args)
+		},
+	}
+}
+
+// Export/Template aliases
+
+// dumpCmd - "dump" as alias to "export" (MCP pattern)
+func dumpCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "dump <file.yaml>",
+		Short:  "Dump tasks to file (alias for 'export')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return exportCmd().RunE(cmd, args)
+		},
+	}
+}
+
+// saveCmd - "save" as alias to "export"
+func saveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "save <file.yaml>",
+		Short:  "Save tasks to file (alias for 'export')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return exportCmd().RunE(cmd, args)
+		},
+	}
+}
+
+// backupCmd - "backup" as alias to "export"
+func backupCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "backup <file.yaml>",
+		Short:  "Backup tasks to file (alias for 'export')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return exportCmd().RunE(cmd, args)
+		},
+	}
+}
+
+// templateCmd - "template" as standalone command for import --template
+func importTemplateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "template",
+		Short:  "Show import template (alias for 'import --template')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Flags().Set("template", "true")
+			return importCmd().RunE(cmd, []string{})
+		},
+	}
+}
+
+// formatCmd - "format" as alias to "import --template"
+func formatCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "format",
+		Short:  "Show format template (alias for 'import --template')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Flags().Set("template", "true")
+			return importCmd().RunE(cmd, []string{})
+		},
+	}
+}
+
+// exampleCmd - "example" as alias to "import --template"
+func exampleCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "example",
+		Short:  "Show example template (alias for 'import --template')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Flags().Set("template", "true")
+			return importCmd().RunE(cmd, []string{})
+		},
+	}
+}
+
+// scaffoldCmd - "scaffold" as standalone for export --scaffold
+func scaffoldCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "scaffold <dir>",
+		Short:  "Create scaffold structure (alias for 'export --scaffold')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Flags().Set("scaffold", "true")
+			return exportCmd().RunE(cmd, args)
+		},
+	}
+}
+
+// initCmd - "init" as alias to "export --scaffold"
+func initCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "init <dir>",
+		Short:  "Initialize structure (alias for 'export --scaffold')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Flags().Set("scaffold", "true")
+			return exportCmd().RunE(cmd, args)
+		},
+	}
+}
+
+// setupCmd - "setup" as alias to "export --scaffold"
+func setupCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "setup <dir>",
+		Short:  "Setup structure (alias for 'export --scaffold')",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.Flags().Set("scaffold", "true")
+			return exportCmd().RunE(cmd, args)
 		},
 	}
 }

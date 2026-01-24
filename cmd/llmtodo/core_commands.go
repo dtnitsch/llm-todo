@@ -37,11 +37,15 @@ func nextCmd() *cobra.Command {
 			session, _ := mgr.GetSession(sessionID)
 			stats, _ := mgr.GetStats(sessionID)
 
+			// Get upcoming tasks (next 2-3 after current)
+			upcomingTasks, _ := mgr.GetUpcomingTasks(sessionID, 3)
+
 			output := &todo.NextOutput{
 				Task:           task,
 				Session:        session,
 				TotalTasks:     stats["total"],
 				CompletedTasks: stats["completed"],
+				UpcomingTasks:  upcomingTasks,
 			}
 
 			// Get suggestions

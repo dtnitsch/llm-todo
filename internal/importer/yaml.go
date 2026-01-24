@@ -32,6 +32,94 @@ type YAMLFile struct {
 	Tasks []YAMLTask `yaml:"tasks,omitempty"`
 }
 
+// UpdateTasksFromYAML updates existing tasks from a YAML file by ID and returns (count, goal, error)
+func UpdateTasksFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Parse YAML file
+	var yamlFile YAMLFile
+	var tasks []YAMLTask
+	var goal string
+
+	if err := yaml.Unmarshal(data, &yamlFile); err == nil && len(yamlFile.Tasks) > 0 {
+		tasks = yamlFile.Tasks
+		goal = yamlFile.Goal
+	} else {
+		if err := yaml.Unmarshal(data, &tasks); err != nil {
+			return 0, "", fmt.Errorf("failed to parse YAML: %w", err)
+		}
+	}
+
+	count := 0
+	for _, yamlTask := range tasks {
+		if yamlTask.ID == "" {
+			continue // Skip tasks without IDs
+		}
+
+		// Extract task number from "task-{num}"
+		var taskID int
+		if _, err := fmt.Sscanf(yamlTask.ID, "task-%d", &taskID); err != nil {
+			continue // Skip malformed IDs
+		}
+
+		// Build updates map (only non-empty fields)
+		updates := make(map[string]interface{})
+
+		if yamlTask.Title != "" {
+			updates["task"] = yamlTask.Title
+			updates["active_form"] = generateActiveForm(yamlTask.Title)
+		}
+
+		if yamlTask.Priority != "" {
+			updates["priority"] = yamlTask.Priority
+		}
+
+		if yamlTask.Effort != "" {
+			updates["effort"] = yamlTask.Effort
+		}
+
+		if yamlTask.Status != "" {
+			updates["status"] = mapStatus(yamlTask.Status)
+		}
+
+		if yamlTask.Type != "" {
+			updates["type"] = yamlTask.Type
+		}
+
+		// Only update files if non-empty array
+		if len(yamlTask.Files) > 0 {
+			filesJSON, _ := json.Marshal(yamlTask.Files)
+			updates["files"] = string(filesJSON)
+		}
+
+		// Only update refs if non-empty array
+		if len(yamlTask.Refs) > 0 {
+			refsJSON, _ := json.Marshal(yamlTask.Refs)
+			updates["refs"] = string(refsJSON)
+		}
+
+		// Only update instructions if non-empty
+		if len(yamlTask.Instructions) > 0 {
+			instructionsJSON, _ := json.Marshal(yamlTask.Instructions)
+			updates["instructions"] = string(instructionsJSON)
+		}
+
+		// Only update if we have changes
+		if len(updates) > 0 {
+			if err := mgr.UpdateTask(taskID, updates); err != nil {
+				// Continue on error, just log it
+				continue
+			}
+			count++
+		}
+	}
+
+	return count, goal, nil
+}
+
 // ImportFromYAML imports tasks from a YAML file and returns (count, goal, error)
 func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string, error) {
 	data, err := os.ReadFile(filePath)

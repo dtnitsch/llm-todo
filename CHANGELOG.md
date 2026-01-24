@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-24
+
+### Added
+- **LLM-Optimized Enrichment Workflow**: Auto-generated enrichment files for adding context to tasks
+  - Template-based approach: ONE example task showing ALL available fields
+  - Minimal actual tasks: just `id` and `title` (add fields as you know them)
+  - Clear instruction: "DO NOT EDIT IN PLACE - Re-write ENTIRE output and overwrite this file"
+  - File location: `~/.llm-todo/enrichment/{session-id}.yaml`
+  - Terminal output shows LLM workflow: Read → Write (overwrite) → Import
+  - Update-by-ID support: Re-importing enrichment file updates existing tasks (no duplicates)
+  - Token efficient: ~3,000 tokens vs 6,000-12,000 for TodoWrite (50-75% savings)
+  - Persistent: File survives session end, reviewable by humans
+
+### Fixed
+- **Blocking interactive prompts removed**: `code` and `research` commands no longer prompt by default
+  - OLD: Prompted for goal, boundaries, success criteria (blocking workflow)
+  - NEW: Quick creation by default, optional `--prompt` flag for interactive mode
+  - Changed `--skip-prompt` to `--prompt` (opt-in instead of opt-out)
+  - Enrichment files provide better workflow for adding context after creation
+
+### Changed
+- **Enrichment file format redesigned for LLM one-shot generation**:
+  - Before: Every task had all fields with empty values and inline comments (repetitive, 115 lines for 12 tasks)
+  - After: ONE example task + minimal actual tasks (45 lines for 12 tasks, ~60% reduction)
+  - LLMs can now overwrite entire file in one Write tool call instead of 15+ Edit tool calls
+  - Humans can still edit files normally in vim/editor
+
+### Benefits
+- **Mid-stream enrichment**: When LLM has context from working together, can enrich all tasks in one shot
+- **Natural LLM workflow**: Read template once, generate complete enriched version, overwrite file, import
+- **No prompting friction**: Create tasks fast, enrich later via file (or skip entirely)
+- **Persistent task context**: Unlike TodoWrite, enrichment files survive session end
+- **Human-friendly too**: File-based workflow works great for both LLMs and humans
+
 ## [0.7.0] - 2026-01-23
 
 ### Added

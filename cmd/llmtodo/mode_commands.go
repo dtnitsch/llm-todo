@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/dtnitsch/llm-todo/internal/exporter"
 	"github.com/dtnitsch/llm-todo/internal/todo"
 )
 
@@ -83,8 +84,13 @@ Tip: Use --name for large projects.`,
 			sessionID := generateSessionID(name)
 			isAutoNamed := name == ""
 
-			// If flags not provided and not skipping prompt, prompt interactively
-			if !skipPrompt && goal == "" {
+			// Only prompt if explicitly requested (--prompt flag)
+			// Default behavior: quick creation, enrich later via file
+			// Note: skipPrompt=false means "do prompt", so we check for that
+			if !skipPrompt {
+				// Default: skip prompts (quick creation)
+			} else {
+				// User passed --prompt: do interactive prompts
 				goal, boundaries, successCriteria = promptCodeSession()
 			}
 
@@ -116,7 +122,7 @@ Tip: Use --name for large projects.`,
 	cmd.Flags().StringVar(&boundaries, "boundaries", "", "What's out of scope")
 	cmd.Flags().StringVar(&successCriteria, "success", "", "Success criteria")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Session name (creates {dir}-{name}, otherwise auto-timestamp)")
-	cmd.Flags().BoolVar(&skipPrompt, "skip-prompt", false, "Skip interactive prompts")
+	cmd.Flags().BoolVar(&skipPrompt, "prompt", false, "Prompt for goal/boundaries/success interactively")
 
 	return cmd
 }
@@ -140,8 +146,12 @@ Session naming:
 			sessionID := generateSessionID(name)
 			isAutoNamed := name == ""
 
-			// If flags not provided and not skipping prompt, prompt interactively
-			if !skipPrompt && goal == "" {
+			// Only prompt if explicitly requested (--prompt flag)
+			// Default behavior: quick creation, enrich later via file
+			if !skipPrompt {
+				// Default: skip prompts (quick creation)
+			} else {
+				// User passed --prompt: do interactive prompts
 				goal, deliverables = promptResearchSession()
 			}
 
@@ -172,7 +182,7 @@ Session naming:
 	cmd.Flags().StringVarP(&goal, "goal", "g", "", "Session context (why these tasks exist)")
 	cmd.Flags().StringVar(&deliverables, "deliverables", "", "Expected deliverables")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Session name (creates {dir}-{name}, otherwise auto-timestamp)")
-	cmd.Flags().BoolVar(&skipPrompt, "skip-prompt", false, "Skip interactive prompts")
+	cmd.Flags().BoolVar(&skipPrompt, "prompt", false, "Prompt for goal/deliverables interactively")
 
 	return cmd
 }
@@ -227,6 +237,11 @@ func createSessionWithMetadata(sessionID, sessionType string, tasks []string, go
 
 	fmt.Println()
 	fmt.Printf("Created %d tasks:\n", len(tasks))
+
+	// Track created task IDs and titles for enrichment file
+	var createdTaskIDs []int64
+	taskTitles := make(map[int64]string)
+
 	for i, taskTitle := range tasks {
 		task := &todo.Task{
 			SessionID:     sessionID,
@@ -243,8 +258,31 @@ func createSessionWithMetadata(sessionID, sessionType string, tasks []string, go
 			return err
 		}
 		fmt.Printf("  %d. %s\n", id, taskTitle)
+
+		createdTaskIDs = append(createdTaskIDs, id)
+		taskTitles[id] = taskTitle
 	}
 
-	fmt.Printf("\nRun: llmtodo next\n")
+	// Generate enrichment file
+	enrichmentPath, err := exporter.GetEnrichmentPath(sessionID)
+	if err != nil {
+		fmt.Printf("\n⚠️  Warning: Could not determine enrichment file path: %v\n", err)
+		return nil
+	}
+
+	if err := exporter.GenerateEnrichmentFile(session, createdTaskIDs, taskTitles, enrichmentPath); err != nil {
+		// Non-fatal: just warn and continue
+		fmt.Printf("\n⚠️  Warning: Could not generate enrichment file: %v\n", err)
+	} else {
+		// Show recommendation
+		fmt.Printf("\nPre-filled enrichment: %s\n\n", enrichmentPath)
+		fmt.Println("RECOMMEND: Enrich tasks for better context")
+		fmt.Println("  LLM workflow:")
+		fmt.Printf("    1. Read: %s\n", enrichmentPath)
+		fmt.Println("    2. Write: Overwrite entire file with enriched version")
+		fmt.Printf("    3. Import: llmtodo import %s\n\n", enrichmentPath)
+		fmt.Println("Skip enrichment: llmtodo next")
+	}
+
 	return nil
 }

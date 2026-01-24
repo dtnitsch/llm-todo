@@ -45,6 +45,7 @@ type NextOutput struct {
 	Session        *Session
 	TotalTasks     int
 	CompletedTasks int
+	UpcomingTasks  []*Task
 	Instructions   []string
 	MustNotDo      []string
 	Files          []string

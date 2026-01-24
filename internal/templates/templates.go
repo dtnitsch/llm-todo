@@ -230,3 +230,58 @@ func marshalJSON(v interface{}) string {
 	}
 	return "{}"
 }
+
+// MinimalImportTemplate returns a minimal YAML import template
+func MinimalImportTemplate() string {
+	return `# llmtodo import template - minimal format
+# Copy and modify, then: llmtodo import tasks.yaml
+
+- title: "Task description"
+  priority: p0        # p0 (high), p1 (normal), p2 (low), p3, p4
+  effort: s           # xs, s, m (optional)
+  files:
+    - "path/to/file.go"
+  instructions:
+    must_do:
+      - "Action 1"
+      - "Action 2"
+    must_not_do:
+      - "Don't skip X"
+
+# More examples: llmtodo import --template-full
+`
+}
+
+// FullImportTemplate returns a complete YAML import template with all fields
+func FullImportTemplate() string {
+	return `# Complete llmtodo format with all supported fields
+goal: "Session goal (optional, provides context for all tasks)"
+
+tasks:
+  - id: unique_id           # Optional, for dependencies
+    title: "Task title"     # REQUIRED
+    type: task              # task, research, deliverable (default: task)
+    priority: p0            # p0, p1, p2, p3, p4 (default: p1)
+    effort: s               # xs, s, m (optional)
+    status: pending         # pending, done, blocked (default: pending)
+
+    files:                  # Optional file paths
+      - "internal/file.go"
+      - "test/test.go"
+
+    instructions:           # Optional structured guidance
+      must_do:
+        - "Concise action item"
+        - "Another step"
+      must_not_do:
+        - "Don't break X"
+
+    refs:                   # Optional URLs/docs
+      - "https://docs.example.com"
+
+    depends_on:             # Optional task dependencies
+      - other_task_id
+
+  - title: "Minimal task"   # Only title required
+`
+}
