@@ -16,31 +16,38 @@ func init() {
 }
 
 func sessionsCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "sessions",
-		Short: "List all sessions with progress",
-		Example: `  todo sessions
+		Short: "List sessions with progress",
+		Example: `  todo sessions                # List active sessions
+  todo sessions --archived     # List archived sessions
   todo sessions | grep llm-todo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			showArchived, _ := cmd.Flags().GetBool("archived")
+
 			mgr, err := todo.NewManager("")
 			if err != nil {
 				return err
 			}
 			defer mgr.Close()
 
-			sessions, err := mgr.ListSessions()
+			sessions, err := mgr.ListSessions(showArchived)
 			if err != nil {
 				return err
 			}
 
 			if len(sessions) == 0 {
-				fmt.Println("No sessions found")
+				if showArchived {
+					fmt.Println("No archived sessions found")
+				} else {
+					fmt.Println("No active sessions found")
+				}
 				return nil
 			}
 
 			// Show current session
 			currentSession, _ := todo.GetCurrentSession()
-			if currentSession != "" {
+			if currentSession != "" && !showArchived {
 				fmt.Printf("Active session: %s\n\n", currentSession)
 			}
 
@@ -48,12 +55,15 @@ func sessionsCmd() *cobra.Command {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			defer w.Flush()
 
+			if showArchived {
+				fmt.Fprintln(w, "ARCHIVED SESSIONS")
+			}
 			fmt.Fprintln(w, "Session\tType\tGoal\tTotal\tPending\tIn Progress\tCompleted\tBlocked\tUpdated")
 			fmt.Fprintln(w, "---\t---\t---\t---\t---\t---\t---\t---\t---")
 
 			for _, s := range sessions {
 				active := ""
-				if s.ID == currentSession {
+				if s.ID == currentSession && !showArchived {
 					active = "*"
 				}
 
@@ -69,11 +79,14 @@ func sessionsCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().Bool("archived", false, "Show archived sessions instead of active ones")
+	return cmd
 }
 
 func sessionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "session [show|goal]",
+		Use:   "session [show|goal|archive|restore]",
 		Short: "View or update session context",
 		Long: `View or update session context including goal, progress, and recent tasks.
 
@@ -90,8 +103,10 @@ Use --all flag to see all tasks instead of recent summaries.`,
   llmtodo session show llm-todo             # Show specific session
   llmtodo session show llm-todo --all       # Show specific session with all tasks
   llmtodo session goal "Refactor auth"      # Set goal for current session
-  llmtodo session goal llm-todo "Build API" # Set goal for specific session`,
-		Args: cobra.MaximumNArgs(2),
+  llmtodo session goal llm-todo "Build API" # Set goal for specific session
+  llmtodo session archive llm-todo          # Archive completed session
+  llmtodo session restore llm-todo          # Restore archived session`,
+		Args: cobra.MaximumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			showAll, _ := cmd.Flags().GetBool("all")
 
@@ -126,6 +141,18 @@ Use --all flag to see all tasks instead of recent summaries.`,
 				}
 
 				return setSessionGoal(sessionID, goalText)
+
+			case "archive":
+				if len(args) < 2 {
+					return fmt.Errorf("usage: todo session archive <session-id>")
+				}
+				return archiveSession(args[1])
+
+			case "restore":
+				if len(args) < 2 {
+					return fmt.Errorf("usage: todo session restore <session-id>")
+				}
+				return restoreSession(args[1])
 
 			default:
 				return fmt.Errorf("unknown subcommand: %s", subcommand)
@@ -347,4 +374,57 @@ func useCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func archiveSession(sessionID string) error {
+	mgr, err := todo.NewManager("")
+	if err != nil {
+		return err
+	}
+	defer mgr.Close()
+
+	// Verify session exists
+	session, err := mgr.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+
+	// Archive the session
+	if err := mgr.ArchiveSession(sessionID); err != nil {
+		return err
+	}
+
+	fmt.Printf("📦 Archived session: %s\n", sessionID)
+	if session.Goal != "" {
+		fmt.Printf("   Goal: %s\n", session.Goal)
+	}
+	fmt.Printf("\nTo restore: llmtodo session restore %s\n", sessionID)
+	fmt.Printf("To view archived sessions: llmtodo sessions --archived\n")
+	return nil
+}
+
+func restoreSession(sessionID string) error {
+	mgr, err := todo.NewManager("")
+	if err != nil {
+		return err
+	}
+	defer mgr.Close()
+
+	// Verify session exists
+	session, err := mgr.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("session not found: %s", sessionID)
+	}
+
+	// Restore the session
+	if err := mgr.RestoreSession(sessionID); err != nil {
+		return err
+	}
+
+	fmt.Printf("♻️  Restored session: %s\n", sessionID)
+	if session.Goal != "" {
+		fmt.Printf("   Goal: %s\n", session.Goal)
+	}
+	fmt.Printf("\nTo switch to this session: llmtodo use %s\n", sessionID)
+	return nil
 }

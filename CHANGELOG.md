@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-23
+
+### Added
+- **Auto-switch on import**: Import command now automatically switches to the imported session for immediate context
+- **Priority breakdown display**: Import shows task distribution by priority (p0: 21 tasks, p1: 13 tasks, etc.)
+- **GetPriorityStats() function**: New internal function to query task counts by priority level
+- **Actionable next steps**: Import output now shows specific commands to run next (`llmtodo next`, `llmtodo get p0`)
+
+### Fixed
+- **Project-local database detection**: Now detects project directories by presence of `.git` or `.llm-todo` directory
+  - OLD: Only used project-local DB if `.llm-todo/tasks.db` file already existed
+  - NEW: Automatically creates project-local DB when copying binary to any git repository
+- **Project-local session state**: Current session tracking now respects project boundaries
+  - Session state stored in `.llm-todo/current` for project-local, `~/.llm-todo/current` for global
+
+### Changed
+- **Import UX dramatically improved for LLM orientation**:
+  - Before: Import succeeded but required manual discovery (`sessions`, `use`, `status`)
+  - After: One command imports, switches, and shows priority breakdown with actionable next steps
+  - Token efficiency: Eliminates 3-4 follow-up commands for LLM to understand what was imported
+
+### Benefits
+- **Zero-friction project setup**: Copy binary to new repo, run import, and start working - no manual session switching
+- **LLM clarity**: Import output answers "What changed?", "Where am I?", "What should I do next?"
+- **Consistent behavior**: Project-local detection works the same way for both database and session state
+
+## [0.6.0] - 2026-01-22
+
+### Added
+- **Session Naming System** for managing multiple work streams in one directory:
+  - `--name` flag on `quick`, `code`, `research` commands creates `{directory}-{name}` sessions
+  - Auto-generated timestamp fallback: `{directory}-{timestamp}` (YYYYMMDD-HHMM format)
+  - Naming hint displayed after auto-generated sessions to encourage clarity
+  - Examples: `llmtodo quick "task1" --name feature-x` or auto `llm-todo-20260122-1430`
+- **Session Archiving** for reducing clutter in active sessions list:
+  - `llmtodo session archive <session-id>` to hide completed sessions
+  - `llmtodo session restore <session-id>` to bring back archived sessions
+  - `llmtodo sessions --archived` to view archived sessions separately
+  - Archived sessions excluded from default `sessions` list
+  - Sessions table schema updated to support `archived` status
+- **Session Scope Filtering** via `--session` flag on all query commands:
+  - Works with: `get`, `show`, `status`, `next`, `done`, `block`, `note`, `search`
+  - Query different sessions without switching: `llmtodo get p0 --session other-project`
+  - Auto-sets current session when creating tasks with `quick`/`code`/`research`
+- **LLM Quick Reference Guide**:
+  - `llmtodo guide` command shows token-efficient workflows
+  - Covers: session creation, work loop, batch operations, context switching
+  - Zero tokens until invoked (opt-in reference)
+  - Replaces need for verbose --help documentation
+- **Smart Context Warnings** in `next` output:
+  - Detects missing files, instructions, notes, and refs
+  - Shows "MISSING CONTEXT" warning with enrichment hint
+  - Inline display of enrichment when present (instructions, files, refs)
+  - Saves 500+ tokens by preventing unnecessary `show` calls
+
+### Changed
+- **Improved `next` output header**:
+  - Old: `NEXT: Task Title (#123)` (confusing - is #123 next or current?)
+  - New: `Task #123: Task Title` (clear - this IS the task)
+  - Removes cognitive overhead about command vs output naming
+- **Auto-set current session** on task creation:
+  - `quick`, `code`, `research` now automatically call `SetCurrentSession()`
+  - Ensures `llmtodo list` shows newly created tasks by default
+  - Solves problem of tasks being created but not visible in current session
+- **Session command arg handling**:
+  - Increased max args from 2 to 3 to support `session goal <id> "<text>"`
+  - Fixed goal suggestion hint to remove unnecessary quotes around session ID
+
+### Fixed
+- Session goal suggestion now shows correct syntax without extra quotes
+- Query commands now properly respect current session instead of showing all sessions
+
+### Benefits
+- **Multiple work streams**: Create separate sessions for different features in same directory
+- **Clean workspace**: Archive completed sessions while preserving history
+- **Cross-session queries**: Check other sessions without context switching
+- **Token efficiency**: Context warnings prevent wasteful `show` calls (88% savings)
+- **Better UX**: Auto-session-setting means tasks are immediately visible after creation
+
 ## [0.5.0] - 2026-01-19
 
 ### Added
@@ -168,7 +247,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empirical token efficiency testing results
 - Integration test suite (9 tests)
 
-[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/dtnitsch/llm-todo/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/dtnitsch/llm-todo/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/dtnitsch/llm-todo/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dtnitsch/llm-todo/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dtnitsch/llm-todo/compare/v0.2.0...v0.3.0

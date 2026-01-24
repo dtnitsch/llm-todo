@@ -86,6 +86,41 @@ func (m *Manager) GetStats(sessionID string) (map[string]int, error) {
 	return stats, nil
 }
 
+// GetPriorityStats returns task count by priority (excluding completed tasks)
+func (m *Manager) GetPriorityStats(sessionID string) (map[string]int, error) {
+	stats := make(map[string]int)
+
+	rows, err := m.db.Query(`
+		SELECT priority, COUNT(*)
+		FROM todos
+		WHERE session_id = ? AND status != 'completed'
+		GROUP BY priority
+		ORDER BY
+			CASE priority
+				WHEN 'p0' THEN 0
+				WHEN 'p1' THEN 1
+				WHEN 'p2' THEN 2
+				WHEN 'p3' THEN 3
+				WHEN 'p4' THEN 4
+			END
+	`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var priority string
+		var count int
+		if err := rows.Scan(&priority, &count); err != nil {
+			return nil, err
+		}
+		stats[priority] = count
+	}
+
+	return stats, nil
+}
+
 // GetNextTask returns the next pending task (first by priority order)
 func (m *Manager) GetNextTask(sessionID string) (*Task, error) {
 	tasks, err := m.ListTasks(sessionID, map[string]string{"status": "pending"})

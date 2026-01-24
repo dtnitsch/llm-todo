@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     success_criteria TEXT,
     boundaries TEXT,                  -- JSON array
     deliverables TEXT,                -- JSON array (research mode)
-    status TEXT DEFAULT 'active',     -- active, completed
+    status TEXT DEFAULT 'active',     -- active, completed, archived
     metadata TEXT DEFAULT '{}',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

@@ -19,9 +19,10 @@ type SessionSummary struct {
 	UpdatedAt       string
 }
 
-// ListSessions returns all sessions with stats
-func (m *Manager) ListSessions() ([]SessionSummary, error) {
-	rows, err := m.db.Query(`
+// ListSessions returns sessions with stats, optionally filtered by archived status
+// includeArchived: if true, returns all sessions; if false, excludes archived sessions
+func (m *Manager) ListSessions(includeArchived bool) ([]SessionSummary, error) {
+	query := `
 		SELECT
 			s.id,
 			s.type,
@@ -33,10 +34,19 @@ func (m *Manager) ListSessions() ([]SessionSummary, error) {
 			COALESCE(SUM(CASE WHEN t.status = 'blocked' THEN 1 ELSE 0 END), 0) as blocked,
 			COUNT(t.id) as total
 		FROM sessions s
-		LEFT JOIN todos t ON s.id = t.session_id
+		LEFT JOIN todos t ON s.id = t.session_id`
+
+	if !includeArchived {
+		query += `
+		WHERE s.status != 'archived'`
+	}
+
+	query += `
 		GROUP BY s.id
 		ORDER BY s.updated_at DESC
-	`)
+	`
+
+	rows, err := m.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -54,14 +64,25 @@ func (m *Manager) ListSessions() ([]SessionSummary, error) {
 	return sessions, nil
 }
 
-// GetCurrentSession returns the active session ID from ~/.llm-todo/current
-func GetCurrentSession() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+// ArchiveSession archives a session (sets status to 'archived')
+func (m *Manager) ArchiveSession(sessionID string) error {
+	updates := map[string]interface{}{
+		"status": "archived",
 	}
+	return m.UpdateSession(sessionID, updates)
+}
 
-	currentFile := filepath.Join(home, ".llm-todo", "current")
+// RestoreSession restores an archived session (sets status to 'active')
+func (m *Manager) RestoreSession(sessionID string) error {
+	updates := map[string]interface{}{
+		"status": "active",
+	}
+	return m.UpdateSession(sessionID, updates)
+}
+
+// GetCurrentSession returns the active session ID from project-local or global current file
+func GetCurrentSession() (string, error) {
+	currentFile := getCurrentFilePath()
 	data, err := os.ReadFile(currentFile)
 	if err != nil {
 		return "", fmt.Errorf("no active session (use 'todo use <session>' or run from project directory)")
@@ -72,12 +93,7 @@ func GetCurrentSession() (string, error) {
 
 // SetCurrentSession sets the active session
 func SetCurrentSession(sessionID string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	currentFile := filepath.Join(home, ".llm-todo", "current")
+	currentFile := getCurrentFilePath()
 	dir := filepath.Dir(currentFile)
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -85,4 +101,33 @@ func SetCurrentSession(sessionID string) error {
 	}
 
 	return os.WriteFile(currentFile, []byte(sessionID), 0644)
+}
+
+// getCurrentFilePath returns the path to the current session file (project-local or global)
+func getCurrentFilePath() string {
+	// Check if we're in a project directory
+	if isProjectDir() {
+		return ".llm-todo/current"
+	}
+
+	// Fall back to global
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".llm-todo/current"
+	}
+
+	return filepath.Join(home, ".llm-todo", "current")
+}
+
+// isProjectDir checks if the current directory is a project directory
+func isProjectDir() bool {
+	// Check for .git directory (git repository)
+	if _, err := os.Stat(".git"); err == nil {
+		return true
+	}
+	// Check for .llm-todo directory (explicit opt-in)
+	if _, err := os.Stat(".llm-todo"); err == nil {
+		return true
+	}
+	return false
 }

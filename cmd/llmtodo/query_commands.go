@@ -27,8 +27,9 @@ STATUS FILTERS:
   pending, in_progress, completed, blocked
 
 FLAGS:
-  --all   Include completed tasks (for priority filters)
-  --full  Show all tasks (no 10-item limit on queued)
+  --all      Include completed tasks (for priority filters)
+  --full     Show all tasks (no 10-item limit on queued)
+  --session  Query a different session (default: current session)
 
 By default, priority filters (p0, p1, etc.) exclude completed tasks.
 Use --all to include them. Status filters always show all matching tasks.`,
@@ -38,10 +39,12 @@ Use --all to include them. Status filters always show all matching tasks.`,
   llmtodo get blocked             # All blocked tasks
   llmtodo get p0 --all            # p0 tasks including completed
   llmtodo get p0 --full           # All p0 pending (no 10-item limit)
-  llmtodo get p0 --all --full     # All p0 tasks, full list`,
+  llmtodo get p0 --all --full     # All p0 tasks, full list
+  llmtodo get p0 --session other  # p0 tasks from 'other' session`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessionID := getSessionID()
+			sessionOverride, _ := cmd.Flags().GetString("session")
+			sessionID := getSessionIDWithOverride(sessionOverride)
 			mgr, err := todo.NewManager("")
 			if err != nil {
 				return err
@@ -82,6 +85,7 @@ Use --all to include them. Status filters always show all matching tasks.`,
 
 	cmd.Flags().Bool("all", false, "Include completed tasks")
 	cmd.Flags().Bool("full", false, "Show full lists (no 10-item limit)")
+	cmd.Flags().String("session", "", "Query a different session")
 
 	return cmd
 }
@@ -128,7 +132,8 @@ func statusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Show session progress summary",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessionID := getSessionID()
+			sessionOverride, _ := cmd.Flags().GetString("session")
+			sessionID := getSessionIDWithOverride(sessionOverride)
 			mgr, err := todo.NewManager("")
 			if err != nil {
 				return err
@@ -149,6 +154,8 @@ func statusCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("session", "", "Query a different session")
 
 	return cmd
 }

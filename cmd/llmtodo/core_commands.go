@@ -17,11 +17,12 @@ func addCoreCommands(root *cobra.Command) {
 }
 
 func nextCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "Show next task with full details",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessionID := getSessionID()
+			sessionOverride, _ := cmd.Flags().GetString("session")
+			sessionID := getSessionIDWithOverride(sessionOverride)
 			mgr, err := todo.NewManager("")
 			if err != nil {
 				return err
@@ -50,15 +51,19 @@ func nextCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("session", "", "Query a different session")
+	return cmd
 }
 
 func doneCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "done [task-ids]",
 		Short: "Mark task(s) as completed",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessionID := getSessionID()
+			sessionOverride, _ := cmd.Flags().GetString("session")
+			sessionID := getSessionIDWithOverride(sessionOverride)
 			mgr, err := todo.NewManager("")
 			if err != nil {
 				return err
@@ -113,10 +118,13 @@ func doneCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("session", "", "Query a different session")
+	return cmd
 }
 
 func blockCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "block <task-ids> <reason>",
 		Short: "Mark task(s) as blocked",
 		Args:  cobra.ExactArgs(2),
@@ -148,10 +156,13 @@ func blockCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("session", "", "Query a different session")
+	return cmd
 }
 
 func noteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "note <task-ids> <note>",
 		Short: "Add note to task(s)",
 		Args:  cobra.ExactArgs(2),
@@ -177,4 +188,7 @@ func noteCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("session", "", "Query a different session")
+	return cmd
 }

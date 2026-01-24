@@ -66,19 +66,46 @@ func importCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Printf("✓ Imported %d tasks into session: %s\n", count, sessionID)
-			if goal != "" {
-				fmt.Printf("  Goal: %s\n", goal)
+			// Auto-switch to the imported session
+			if err := todo.SetCurrentSession(sessionID); err != nil {
+				return err
 			}
 
-			stats, _ := mgr.GetStats(sessionID)
-			fmt.Printf("\nSession stats:\n")
-			fmt.Printf("  Total: %d\n", stats["total"])
-			fmt.Printf("  Pending: %d\n", stats["pending"])
+			fmt.Printf("✓ Imported %d tasks into session: %s\n", count, sessionID)
+			fmt.Printf("✓ Switched to session: %s\n", sessionID)
+			if goal != "" {
+				fmt.Printf("\nGoal: %s\n", goal)
+			}
 
-			// Show suggestion if goal not in YAML and not already in session
+			// Show priority breakdown
+			priorityStats, _ := mgr.GetPriorityStats(sessionID)
+			if len(priorityStats) > 0 {
+				fmt.Printf("\nBreakdown by priority:\n")
+				for _, p := range []string{"p0", "p1", "p2", "p3", "p4"} {
+					if count, ok := priorityStats[p]; ok && count > 0 {
+						label := "high priority"
+						if p == "p1" {
+							label = "important"
+						} else if p == "p2" {
+							label = "medium"
+						} else if p == "p3" {
+							label = "low"
+						} else if p == "p4" {
+							label = "optional"
+						}
+						fmt.Printf("  %s: %d tasks (%s)\n", p, count, label)
+					}
+				}
+			}
+
+			// Show actionable next steps
+			fmt.Printf("\nNext steps:\n")
+			fmt.Printf("  llmtodo next           # See next task\n")
+			if priorityStats["p0"] > 0 {
+				fmt.Printf("  llmtodo get p0         # See all p0 tasks\n")
+			}
 			if goal == "" && session.Goal == "" {
-				printGoalSuggestion(sessionID)
+				fmt.Printf("  llmtodo session goal %s \"<description>\"  # Add session goal\n", sessionID)
 			}
 
 			return nil

@@ -115,8 +115,8 @@ func DefaultPath() string {
 		return envPath
 	}
 
-	// Check for project-local database first
-	if _, err := os.Stat(".llm-todo/tasks.db"); err == nil {
+	// Check if we're in a project directory
+	if isProjectDir() {
 		return ".llm-todo/tasks.db"
 	}
 
@@ -127,4 +127,17 @@ func DefaultPath() string {
 	}
 
 	return filepath.Join(home, ".llm-todo", "tasks.db")
+}
+
+// isProjectDir checks if the current directory is a project directory
+func isProjectDir() bool {
+	// Check for .git directory (git repository)
+	if _, err := os.Stat(".git"); err == nil {
+		return true
+	}
+	// Check for .llm-todo directory (explicit opt-in)
+	if _, err := os.Stat(".llm-todo"); err == nil {
+		return true
+	}
+	return false
 }

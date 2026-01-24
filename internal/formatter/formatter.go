@@ -16,7 +16,7 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 	session := output.Session
 
 	// Header with task ID
-	b.WriteString(fmt.Sprintf("NEXT: %s (#%d)\n", task.Task, task.ID))
+	b.WriteString(fmt.Sprintf("Task #%d: %s\n", task.ID, task.Task))
 
 	// Metadata line (priority | effort | files)
 	var metaParts []string
@@ -38,6 +38,21 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 	}
 	b.WriteString("\n")
 
+	// CONTEXT CHECK - warn if missing critical data
+	hasFiles := task.Files != "" && task.Files != "[]"
+	hasInstructions := task.Instructions != "" && task.Instructions != "{}"
+	hasRefs := task.Refs != "" && task.Refs != "[]"
+
+	missingContext := false
+	if !hasFiles && !hasInstructions && !hasRefs && task.Notes == "" {
+		missingContext = true
+	}
+
+	if missingContext {
+		b.WriteString("MISSING CONTEXT: No files, instructions, or notes\n")
+		b.WriteString("Hint: llmtodo enrich " + fmt.Sprintf("%d", task.ID) + "\n\n")
+	}
+
 	// SUGGESTIONS (if any)
 	if len(suggestions) > 0 {
 		b.WriteString("SUGGESTIONS:\n")
@@ -48,19 +63,19 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 	}
 
 	// INSTRUCTIONS (must_do / must_not_do) - compact format
-	hasInstructions := false
+	hasInstructionsContent := false
 	if task.Instructions != "" {
 		var instructions map[string][]string
 		if err := json.Unmarshal([]byte(task.Instructions), &instructions); err == nil {
 			if mustDo := instructions["must_do"]; len(mustDo) > 0 {
-				hasInstructions = true
+				hasInstructionsContent = true
 				for _, item := range mustDo {
 					b.WriteString(fmt.Sprintf("  - %s\n", item))
 				}
 				b.WriteString("\n")
 			}
 			if mustNotDo := instructions["must_not_do"]; len(mustNotDo) > 0 {
-				hasInstructions = true
+				hasInstructionsContent = true
 				b.WriteString("MUST NOT:\n")
 				for _, item := range mustNotDo {
 					b.WriteString(fmt.Sprintf("  ✗ %s\n", item))
@@ -71,7 +86,7 @@ func FormatNext(output *todo.NextOutput, suggestions []todo.Suggestion) string {
 	}
 
 	// Show session context as fallback when no instructions
-	if !hasInstructions && session != nil && session.Goal != "" {
+	if !hasInstructionsContent && session != nil && session.Goal != "" {
 		b.WriteString(fmt.Sprintf("Session: %s - %s\n", session.ID, session.Goal))
 		b.WriteString("Session details: llmtodo session\n\n")
 	}

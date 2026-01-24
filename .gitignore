@@ -2,6 +2,7 @@
 bin/
 /todo
 /llmtodo
+/ltd
 *.exe
 *.dll
 *.so

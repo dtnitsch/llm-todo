@@ -19,10 +19,12 @@ func searchCmd() *cobra.Command {
 		Short: "Search tasks (includes completed by default)",
 		Example: `  todo search "auth"
   todo search "database schema"
-  todo search "bug" --pending  # Only pending tasks`,
+  todo search "bug" --pending  # Only pending tasks
+  todo search "auth" --session other  # Search in 'other' session`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessionID := getSessionID()
+			sessionOverride, _ := cmd.Flags().GetString("session")
+			sessionID := getSessionIDWithOverride(sessionOverride)
 			query := args[0]
 
 			mgr, err := todo.NewManager("")
@@ -66,6 +68,7 @@ func searchCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&onlyPending, "pending", false, "Search only pending tasks (excludes completed)")
+	cmd.Flags().String("session", "", "Query a different session")
 
 	return cmd
 }
