@@ -13,65 +13,46 @@ func init() {
 func guideCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "guide",
-		Short: "LLM quick reference for token-efficient workflows",
+		Short: "LLM quick reference for common workflows",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Print(`LLM QUICK REFERENCE - Token-Efficient Workflows
+			fmt.Print(`LLM QUICK REFERENCE
 
-CREATE SESSION (once per project):
-  llmtodo quick "task1" "task2" --name feature-name  # Named session
-  llmtodo quick "task1" "task2"                      # Auto: {dir}-{timestamp}
-  llmtodo import tasks.yaml                          # Bulk import (5+ tasks)
+BASIC WORKFLOW:
+  llmtodo quick "task1" "task2" --name feature-x
+  llmtodo next
+  llmtodo done
+  llmtodo next
 
-WORK LOOP (repeat):
-  llmtodo next                             # Shows next task (60-100 tokens)
-  [do the work]
-  llmtodo done                             # Complete current task
+QUERY:
+  llmtodo get p0           # Minimal: IDs + titles
+  llmtodo show 5           # Full: all fields
+  llmtodo search "auth"
 
-QUERY (when needed):
-  llmtodo get p0                           # IDs + titles only (60 tokens)
-  llmtodo show 5                           # Full details (500 tokens)
+BATCH:
+  llmtodo done 1,2,3
+  llmtodo block 4,5 "waiting on PR"
 
-BATCH OPERATIONS (token saver):
-  llmtodo done 1,2,3                       # 1 command vs 3 (95% token savings)
-  llmtodo block 4,5 "waiting on PR"        # Block multiple tasks
-  llmtodo note 6,7 "needs review"          # Add notes to multiple
+SESSIONS:
+  llmtodo sessions → llmtodo use {other-session}
 
-CONTEXT SWITCHING:
-  llmtodo sessions                         # List all active sessions
-  llmtodo use other-project                # Switch current session
-  llmtodo get p0 --session other           # Query without switching
+ENRICHMENT (mid-stream when you have context):
+  1. llmtodo code "task1" "task2" "task3"
+  2. Read: ~/.llm-todo/enrichment/{session}.yaml
+  3. Write: Overwrite entire file with enriched version
+  4. llmtodo import ~/.llm-todo/enrichment/{session}.yaml
 
-ENRICHMENT (for context after session loss):
-  llmtodo enrich 5                         # Add files/instructions/context
-  llmtodo next                             # Shows warning if context missing
+  Hint: llmtodo enrich --status for suggestions
 
-TOKEN EFFICIENCY TIPS:
-  - Use 'get' before 'show' (88% token savings: 60 vs 500)
-  - Batch operations save 95% tokens (done 1,2,3 vs 3 separate commands)
-  - Session switching: use 'use' once or '--session' flag for queries
-  - 'next' shows enrichment inline (avoids extra 'show' calls)
+MEMORY EFFICIENCY:
+  - Use 'get' before 'show' (88% smaller)
+  - 'next' shows enrichment inline (no extra reads)
 
-COMMON WORKFLOWS:
+MULTI-SESSION:
+  llmtodo get p0 --session project-a
+  llmtodo get p0 --session project-b
+  llmtodo use project-a
 
-Bug fix workflow:
-  llmtodo quick "Reproduce bug" "Fix" "Test" "PR"
-  llmtodo next           # Get first task
-  llmtodo done           # Complete when done
-  llmtodo next           # Next task
-
-Feature workflow:
-  llmtodo code "Design" "Implement" "Test" "Docs" "Deploy"
-  llmtodo enrich 1,2,3   # Add context upfront
-  llmtodo get p0         # See all high-priority
-  llmtodo done 1,2       # Complete multiple
-
-Multi-session workflow:
-  llmtodo sessions                        # See all active
-  llmtodo get p0 --session project-a      # Check project-a
-  llmtodo get p0 --session project-b      # Check project-b
-  llmtodo use project-a                   # Switch to work on it
-
-Full command reference: llmtodo --help
+Full help: llmtodo --help
 `)
 		},
 	}

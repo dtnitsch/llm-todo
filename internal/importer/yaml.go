@@ -36,7 +36,13 @@ type YAMLFile struct {
 func UpdateTasksFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to read file: %w", err)
+		return 0, "", fmt.Errorf("❌ Failed to read file: %s\n   Make sure the file exists and is readable", filePath)
+	}
+
+	// Check for common typos before parsing
+	typos := CheckForCommonTypos(string(data))
+	if len(typos) > 0 {
+		return 0, "", fmt.Errorf("❌ Possible typos detected:\n   %s\n\n   Fix these and try again", strings.Join(typos, "\n   "))
 	}
 
 	// Parse YAML file
@@ -49,20 +55,53 @@ func UpdateTasksFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, st
 		goal = yamlFile.Goal
 	} else {
 		if err := yaml.Unmarshal(data, &tasks); err != nil {
-			return 0, "", fmt.Errorf("failed to parse YAML: %w", err)
+			return 0, "", fmt.Errorf("❌ Invalid YAML format:\n   %v\n\n   💡 Check indentation (use spaces, not tabs)\n   💡 Run: llmtodo import --template to see correct format", err)
 		}
 	}
 
 	count := 0
+	var errors []string
+	var skippedTasks []string
+
 	for _, yamlTask := range tasks {
 		if yamlTask.ID == "" {
-			continue // Skip tasks without IDs
+			skippedTasks = append(skippedTasks, fmt.Sprintf("Skipped task without ID: %q", yamlTask.Title))
+			continue
 		}
 
 		// Extract task number from "task-{num}"
 		var taskID int
 		if _, err := fmt.Sscanf(yamlTask.ID, "task-%d", &taskID); err != nil {
-			continue // Skip malformed IDs
+			skippedTasks = append(skippedTasks, fmt.Sprintf("Skipped malformed ID: %q (expected format: task-123)", yamlTask.ID))
+			continue
+		}
+
+		// Validate fields before updating
+		if yamlTask.Priority != "" {
+			if err := ValidatePriority(yamlTask.Priority); err != nil {
+				ie := err.(*ImportError)
+				ie.TaskID = yamlTask.ID
+				errors = append(errors, ie.Error())
+				continue
+			}
+		}
+
+		if yamlTask.Effort != "" {
+			if err := ValidateEffort(yamlTask.Effort); err != nil {
+				ie := err.(*ImportError)
+				ie.TaskID = yamlTask.ID
+				errors = append(errors, ie.Error())
+				continue
+			}
+		}
+
+		if yamlTask.Type != "" {
+			if err := ValidateTaskType(yamlTask.Type); err != nil {
+				ie := err.(*ImportError)
+				ie.TaskID = yamlTask.ID
+				errors = append(errors, ie.Error())
+				continue
+			}
 		}
 
 		// Build updates map (only non-empty fields)
@@ -110,11 +149,22 @@ func UpdateTasksFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, st
 		// Only update if we have changes
 		if len(updates) > 0 {
 			if err := mgr.UpdateTask(taskID, updates); err != nil {
-				// Continue on error, just log it
+				// Task doesn't exist
+				errors = append(errors, fmt.Sprintf("❌ Task %s not found\n   Task ID %d doesn't exist in this session\n   💡 Run: llmtodo get pending to see available tasks", yamlTask.ID, taskID))
 				continue
 			}
 			count++
 		}
+	}
+
+	// If we had errors, return them
+	if len(errors) > 0 {
+		return count, goal, fmt.Errorf("\n%s", strings.Join(errors, "\n\n"))
+	}
+
+	// Show warnings for skipped tasks (but don't fail)
+	if len(skippedTasks) > 0 && count == 0 {
+		return 0, goal, fmt.Errorf("⚠️  No tasks updated. Issues:\n   %s", strings.Join(skippedTasks, "\n   "))
 	}
 
 	return count, goal, nil
@@ -124,7 +174,13 @@ func UpdateTasksFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, st
 func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to read file: %w", err)
+		return 0, "", fmt.Errorf("❌ Failed to read file: %s\n   Make sure the file exists and is readable", filePath)
+	}
+
+	// Check for common typos before parsing
+	typos := CheckForCommonTypos(string(data))
+	if len(typos) > 0 {
+		return 0, "", fmt.Errorf("❌ Possible typos detected:\n   %s\n\n   Fix these and try again", strings.Join(typos, "\n   "))
 	}
 
 	// Try parsing as YAMLFile first (new format with goal)
@@ -139,7 +195,7 @@ func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string,
 	} else {
 		// Fallback: try parsing as array of tasks (old format)
 		if err := yaml.Unmarshal(data, &tasks); err != nil {
-			return 0, "", fmt.Errorf("failed to parse YAML: %w", err)
+			return 0, "", fmt.Errorf("❌ Invalid YAML format:\n   %v\n\n   💡 Check indentation (use spaces, not tabs)\n   💡 Run: llmtodo import --template to see correct format", err)
 		}
 	}
 

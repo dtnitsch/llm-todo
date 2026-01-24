@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed `--skip-prompt` to `--prompt` (opt-in instead of opt-out)
   - Enrichment files provide better workflow for adding context after creation
 
+- **Import error messages dramatically improved**:
+  - Typo detection: catches "priortiy" → suggests "priority"
+  - Field validation: invalid priority/effort/type with suggestions
+  - Task ID validation: shows available tasks when ID not found
+  - YAML syntax errors: suggests checking indentation and shows template command
+  - Clear emoji indicators: ❌ for errors, 💡 for suggestions, ⚠️ for warnings
+
 ### Changed
 - **Enrichment file format redesigned for LLM one-shot generation**:
   - Before: Every task had all fields with empty values and inline comments (repetitive, 115 lines for 12 tasks)
