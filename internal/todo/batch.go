@@ -71,3 +71,13 @@ func (m *Manager) BatchAddNote(taskIDs []int, note string) error {
 	}
 	return nil
 }
+
+// BatchDeleteTasks permanently deletes multiple tasks from the database
+func (m *Manager) BatchDeleteTasks(taskIDs []int) error {
+	for _, id := range taskIDs {
+		if err := m.DeleteTask(id); err != nil {
+			return fmt.Errorf("failed to delete task %d: %w", id, err)
+		}
+	}
+	return nil
+}

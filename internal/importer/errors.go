@@ -19,7 +19,7 @@ type ImportError struct {
 func (e *ImportError) Error() string {
 	var b strings.Builder
 
-	b.WriteString("❌ Import failed")
+	b.WriteString("ERROR: Import failed")
 
 	if e.TaskID != "" {
 		b.WriteString(fmt.Sprintf(" for task %s", e.TaskID))
@@ -36,7 +36,7 @@ func (e *ImportError) Error() string {
 	}
 
 	if e.Suggestion != "" {
-		b.WriteString(fmt.Sprintf("\n   💡 %s\n", e.Suggestion))
+		b.WriteString(fmt.Sprintf("\n   HINT: %s\n", e.Suggestion))
 	}
 
 	if len(e.AvailableIDs) > 0 {
@@ -148,21 +148,45 @@ func ValidateTaskType(taskType string) error {
 func CheckForCommonTypos(data string) []string {
 	typos := []string{}
 
-	commonMistakes := map[string]string{
-		"priortiy":     "priority",
-		"prioirty":     "priority",
-		"priorit:":     "priority",
-		"insturctions": "instructions",
-		"instrutions":  "instructions",
-		"instrucions":  "instructions",
-		"must_not":     "must_not_do",
-		"mustnt":       "must_not_do",
-		"mustnot":      "must_not_do",
+	// YAML field-specific typos (check for "field:" pattern)
+	// Note: Order matters - check longer strings before shorter ones to avoid false positives
+	fieldTypos := []struct {
+		typo    string
+		correct string
+	}{
+		{"priortiy:", "priority:"},
+		{"prioirty:", "priority:"},
+		{"priorit:", "priority:"},
+		{"insturctions:", "instructions:"},
+		{"instrutions:", "instructions:"},
+		{"instrucions:", "instructions:"},
+		{"mustnt:", "must_not_do:"},
+		{"mustnot:", "must_not_do:"},
+		// Check for "must_not:" only when NOT followed by "_do"
+		// (to avoid matching valid "must_not_do:")
 	}
 
-	for typo, correct := range commonMistakes {
-		if strings.Contains(strings.ToLower(data), typo) {
-			typos = append(typos, fmt.Sprintf("Found '%s' - did you mean '%s'?", typo, correct))
+	lowerData := strings.ToLower(data)
+
+	// Check for "must_not:" as a field (but not "must_not_do:")
+	// Look for it as a complete word, not as part of "must_not_do:"
+	lines := strings.Split(lowerData, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Skip if this line has the correct field name
+		if strings.Contains(trimmed, "must_not_do:") {
+			continue
+		}
+		// Now check if it has the typo
+		if strings.Contains(trimmed, "must_not:") {
+			typos = append(typos, "Found 'must_not' - did you mean 'must_not_do'?")
+			break
+		}
+	}
+
+	for _, pair := range fieldTypos {
+		if strings.Contains(lowerData, pair.typo) {
+			typos = append(typos, fmt.Sprintf("Found '%s' - did you mean '%s'?", strings.TrimSuffix(pair.typo, ":"), strings.TrimSuffix(pair.correct, ":")))
 		}
 	}
 

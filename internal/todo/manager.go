@@ -1,6 +1,7 @@
 package todo
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/dtnitsch/llm-todo/internal/db"
@@ -32,4 +33,27 @@ func NewManager(dbPath string) (*Manager, error) {
 // Close closes the database connection
 func (m *Manager) Close() error {
 	return m.db.Close()
+}
+
+// BeginTransaction starts a new transaction
+func (m *Manager) BeginTransaction() (*sql.Tx, error) {
+	return m.db.Begin()
+}
+
+// WithTransaction executes a function within a transaction
+// If the function returns an error, the transaction is rolled back
+// Otherwise it is committed
+func (m *Manager) WithTransaction(fn func(*sql.Tx) error) error {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	err = fn(tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }

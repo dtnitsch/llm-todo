@@ -18,7 +18,7 @@ func init() {
 
 func importCmd() *cobra.Command {
 	var sessionID, dir string
-	var showTemplate, showTemplateFull bool
+	var showTemplate, showTemplateFull, validate bool
 
 	cmd := &cobra.Command{
 		Use:   "import <file.yaml>",
@@ -30,11 +30,13 @@ Usage:
   llmtodo import --dir todo/        # Import p0-p4 files from directory
   llmtodo import --template         # Show minimal YAML template
   llmtodo import --template-full    # Show complete format
+  llmtodo import --validate <file>  # Check if file is valid (no import)
 
 Examples:
   llmtodo import tasks.yaml
   llmtodo import --dir todo/
-  llmtodo import --template > tasks.yaml`,
+  llmtodo import --template > tasks.yaml
+  llmtodo import --validate tasks.yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle template flags
@@ -45,6 +47,14 @@ Examples:
 			if showTemplateFull {
 				fmt.Print(templates.FullImportTemplate())
 				return nil
+			}
+
+			// Handle validate flag
+			if validate {
+				if len(args) == 0 {
+					return fmt.Errorf("provide file path to validate")
+				}
+				return validateImportFile(args[0])
 			}
 			mgr, err := todo.NewManager("")
 			if err != nil {
@@ -104,11 +114,11 @@ Examples:
 
 			// Show different message for updates vs creates
 			if isUpdate {
-				fmt.Printf("✓ Updated %d tasks from enrichment file\n", count)
+				fmt.Printf("Updated %d tasks from enrichment file\n", count)
 			} else {
-				fmt.Printf("✓ Imported %d tasks into session: %s\n", count, sessionID)
+				fmt.Printf("Imported %d tasks into session: %s\n", count, sessionID)
 			}
-			fmt.Printf("✓ Switched to session: %s\n", sessionID)
+			fmt.Printf("Switched to session: %s\n", sessionID)
 			if goal != "" {
 				fmt.Printf("\nGoal: %s\n", goal)
 			}
@@ -152,17 +162,66 @@ Examples:
 	cmd.Flags().StringVar(&dir, "dir", "", "Import all p0-p4.yaml files from directory")
 	cmd.Flags().BoolVar(&showTemplate, "template", false, "Output minimal YAML template")
 	cmd.Flags().BoolVar(&showTemplateFull, "template-full", false, "Output complete YAML template with all fields")
+	cmd.Flags().BoolVar(&validate, "validate", false, "Validate YAML file without importing")
 
 	return cmd
 }
 
-// detectUpdateMode checks if the YAML file contains task IDs (update mode)
+// validateImportFile validates a YAML file without importing (parse-only, no DB access)
+func validateImportFile(filePath string) error {
+	// Detect if this is an update (has task IDs) or create (no IDs)
+	isUpdate := detectUpdateMode(filePath)
+
+	fmt.Printf("Validating: %s\n", filePath)
+	if isUpdate {
+		fmt.Println("   Mode: Update (enrichment file with task IDs)")
+	} else {
+		fmt.Println("   Mode: Create (new tasks)")
+	}
+	fmt.Println()
+
+	// Validate by parsing and checking fields (no DB access)
+	count, goal, err := importer.ValidateYAMLFile(filePath)
+	if err != nil {
+		fmt.Println("ERROR: Validation FAILED\n")
+		return err
+	}
+
+	// Success
+	fmt.Println("Validation PASSED")
+	fmt.Printf("   Would process: %d tasks\n", count)
+	if goal != "" {
+		fmt.Printf("   Goal: %s\n", goal)
+	}
+	fmt.Println()
+	fmt.Println("HINT: File is valid. Run without --validate to import:")
+	fmt.Printf("   llmtodo import %s\n", filePath)
+
+	return nil
+}
+
+// detectUpdateMode checks if the YAML file is an enrichment file (update mode)
+// Returns true if this looks like an enrichment file with actual database task IDs
+// Returns false for create mode with logical IDs for dependencies
 func detectUpdateMode(filePath string) bool {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false
 	}
 
-	// Simple heuristic: look for "id: task-" pattern
-	return strings.Contains(string(data), "id: task-")
+	content := string(data)
+
+	// No IDs at all = create mode
+	if !strings.Contains(content, "id: task-") {
+		return false
+	}
+
+	// If file has "depends_on:" field, it's create mode (dependencies use logical IDs)
+	// Enrichment files don't have depends_on
+	if strings.Contains(content, "depends_on:") {
+		return false
+	}
+
+	// Has IDs but no depends_on = enrichment file (update mode)
+	return true
 }

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-01-26
+
+### Fixed
+- **Typo checker false positive**: Fixed `must_not_do:` field incorrectly flagged as typo
+  - Bug: Substring matching caused `must_not:` check to match valid `must_not_do:` fields
+  - Impact: Valid YAML files with `must_not_do:` instructions were rejected
+  - Fix: Line-by-line checking that skips lines containing valid `must_not_do:` before checking for `must_not:` typo
+  - Typo detection still works correctly for actual `must_not:` typos
+
+- **CRITICAL: UpdateTasksFromYAML cross-session contamination**
+  - Bug: `UpdateTask()` didn't validate session ownership, allowing enrichment imports to update wrong session's tasks
+  - Impact: Importing enrichment file in project A could silently update tasks in project B (same database, different sessions)
+  - Example: Importing `vibe-session.yaml` with task IDs 1-20 would update tasks 1-20 from ANY session
+  - Fix: Added `UpdateTaskInSession()` that validates `session_id` in WHERE clause
+  - Fix: `UpdateTask()` now checks `RowsAffected` and returns error if task doesn't exist
+  - Enrichment imports now correctly fail with clear error if tasks don't exist in target session
+
+## [0.8.1] - 2026-01-24
+
+### Fixed
+- **CRITICAL: BulkCreateTasks ID calculation bug** causing dependency updates to silently fail
+  - Bug: Assumed SQLite's `LastInsertId()` returns FIRST inserted ID, but it returns LAST
+  - Impact: Multi-row INSERTs calculated wrong IDs ([5,6,7] instead of [3,4,5])
+  - Result: Dependency UPDATE statements targeted non-existent task IDs (0 rows affected)
+  - Fix: Calculate IDs backward from lastID: `lastID - (numTasks - 1 - i)`
+  - Caught by integration tests before production deployment
+- Dependencies now display correctly in `llmtodo show <task-id>` output
+- Removed emoji from blocked task output (LLM optimization: `⚠️ Blocked` → `BLOCKED`)
+- Fixed enrichment workflow test expectation (all tasks updated when in YAML, not just enriched ones)
+
+### Benefits
+- Task dependencies now work correctly for bulk imports
+- Integration test suite prevented critical data corruption bug from reaching production
+- All 15 integration tests passing
+
 ## [0.8.0] - 2026-01-24
 
 ### Added
@@ -20,6 +55,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Token efficient: ~3,000 tokens vs 6,000-12,000 for TodoWrite (50-75% savings)
   - Persistent: File survives session end, reviewable by humans
 
+- **Import validation**: `llmtodo import --validate <file.yaml>` checks YAML validity without importing
+  - Parse-only validation (no database access)
+  - Catches typos, invalid fields, YAML syntax errors
+  - Shows what would be imported
+
+- **Atomic bulk imports**: Refactored import to use multi-row INSERT
+  - All tasks imported in single SQL command (all-or-nothing)
+  - Faster: fewer database round trips
+  - Better for database performance
+  - Prevents partial imports on error
+
+- **Delete command**: Permanently delete tasks from database
+  - `llmtodo delete <task-ids>` - delete by ID
+  - Aliases: `rm`, `remove`
+  - Batch deletion: `llmtodo delete 1,2,3`
+  - Cannot be undone (use `done` to keep in database)
+
 ### Fixed
 - **Blocking interactive prompts removed**: `code` and `research` commands no longer prompt by default
   - OLD: Prompted for goal, boundaries, success criteria (blocking workflow)
@@ -32,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Field validation: invalid priority/effort/type with suggestions
   - Task ID validation: shows available tasks when ID not found
   - YAML syntax errors: suggests checking indentation and shows template command
-  - Clear emoji indicators: ❌ for errors, 💡 for suggestions, ⚠️ for warnings
+  - Clear text prefixes: ERROR, HINT, WARNING (LLM-optimized, no emojis)
 
 ### Changed
 - **Enrichment file format redesigned for LLM one-shot generation**:
@@ -40,6 +92,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - After: ONE example task + minimal actual tasks (45 lines for 12 tasks, ~60% reduction)
   - LLMs can now overwrite entire file in one Write tool call instead of 15+ Edit tool calls
   - Humans can still edit files normally in vim/editor
+
+- **LLM-optimized output**: Removed emojis from error messages, replaced with text prefixes
+  - Before: ❌, 💡, ⚠️ (visual aids for humans, noise for LLMs)
+  - After: ERROR, HINT, WARNING (clear semantic meaning, fewer tokens)
+  - Whitespace optimization: every character counts in LLM token budgets
 
 ### Benefits
 - **Mid-stream enrichment**: When LLM has context from working together, can enrich all tasks in one shot
@@ -288,7 +345,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empirical token efficiency testing results
 - Integration test suite (9 tests)
 
-[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/dtnitsch/llm-todo/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/dtnitsch/llm-todo/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/dtnitsch/llm-todo/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/dtnitsch/llm-todo/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dtnitsch/llm-todo/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/dtnitsch/llm-todo/compare/v0.4.0...v0.5.0

@@ -12,6 +12,7 @@ import (
 func addCoreCommands(root *cobra.Command) {
 	root.AddCommand(nextCmd())
 	root.AddCommand(doneCmd())
+	root.AddCommand(deleteCmd())
 	root.AddCommand(blockCmd())
 	root.AddCommand(noteCmd())
 }
@@ -117,6 +118,46 @@ func doneCmd() *cobra.Command {
 			// Check for unblocked tasks
 			for _, id := range ids {
 				checkUnblockedTasks(mgr, sessionID, id)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().String("session", "", "Query a different session")
+	return cmd
+}
+
+func deleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <task-ids>",
+		Short: "Permanently delete task(s)",
+		Long:  "Permanently delete tasks from the database. This cannot be undone.\n\nAliases: rm, remove",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sessionOverride, _ := cmd.Flags().GetString("session")
+			_ = getSessionIDWithOverride(sessionOverride)
+			mgr, err := todo.NewManager("")
+			if err != nil {
+				return err
+			}
+			defer mgr.Close()
+
+			// Parse task IDs
+			ids, err := todo.ParseTaskIDs(args[0])
+			if err != nil {
+				return err
+			}
+
+			// Delete tasks
+			if err := mgr.BatchDeleteTasks(ids); err != nil {
+				return err
+			}
+
+			if len(ids) == 1 {
+				fmt.Printf("Deleted task #%d\n", ids[0])
+			} else {
+				fmt.Printf("Deleted %d tasks: %v\n", len(ids), ids)
 			}
 
 			return nil

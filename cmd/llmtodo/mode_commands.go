@@ -266,13 +266,13 @@ func createSessionWithMetadata(sessionID, sessionType string, tasks []string, go
 	// Generate enrichment file
 	enrichmentPath, err := exporter.GetEnrichmentPath(sessionID)
 	if err != nil {
-		fmt.Printf("\n⚠️  Warning: Could not determine enrichment file path: %v\n", err)
+		fmt.Printf("\nWARNING: Could not determine enrichment file path: %v\n", err)
 		return nil
 	}
 
 	if err := exporter.GenerateEnrichmentFile(session, createdTaskIDs, taskTitles, enrichmentPath); err != nil {
 		// Non-fatal: just warn and continue
-		fmt.Printf("\n⚠️  Warning: Could not generate enrichment file: %v\n", err)
+		fmt.Printf("\nWARNING: Could not generate enrichment file: %v\n", err)
 	} else {
 		// Show recommendation
 		fmt.Printf("\nPre-filled enrichment: %s\n\n", enrichmentPath)

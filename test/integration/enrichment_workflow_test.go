@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -47,7 +48,7 @@ func TestEnrichmentWorkflow(t *testing.T) {
 					},
 				},
 			},
-			wantUpdated: 1,
+			wantUpdated: 3, // All tasks updated (YAML contains all tasks with title/priority)
 		},
 		{
 			name:        "code session with metadata",
@@ -71,7 +72,7 @@ func TestEnrichmentWorkflow(t *testing.T) {
 					files:  []string{"handlers/auth.go"},
 				},
 			},
-			wantUpdated: 2,
+			wantUpdated: 3, // All tasks are updated (LLM rewrites entire file)
 		},
 	}
 
@@ -211,7 +212,7 @@ func createEnrichedFile(path, sessionID, goal string, taskIDs []int64, taskTitle
 	content += "tasks:\n"
 
 	for idx, taskID := range taskIDs {
-		content += "  - id: task-" + string(rune(taskID)) + "\n"
+		content += fmt.Sprintf("  - id: task-%d\n", taskID)
 		content += "    title: \"" + taskTitles[taskID] + "\"\n"
 		content += "    priority: p0\n"
 

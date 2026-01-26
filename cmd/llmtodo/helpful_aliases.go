@@ -35,7 +35,10 @@ func addHelpfulAliases(root *cobra.Command) {
 
 	// Helpful redirects (commands that don't map directly)
 	root.AddCommand(updateHelpCmd())
-	root.AddCommand(deleteHelpCmd())
+
+	// Delete aliases
+	root.AddCommand(rmCmd())
+	root.AddCommand(removeCmd())
 }
 
 // addCmd - "add" works as alias to "quick" with helpful tip
@@ -141,27 +144,44 @@ Example workflow:
 	}
 }
 
-// deleteHelpCmd - "delete" redirects to "done" (we don't delete by default)
-func deleteHelpCmd() *cobra.Command {
+// rmCmd - "rm" as alias to "delete"
+func rmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete",
-		Short: "Use 'done' to mark tasks complete",
-		Long: `You tried: todo delete
+		Use:   "rm <task-ids>",
+		Short: "Delete task(s) (alias for 'delete')",
+		Long: `Permanently delete tasks (alias for 'delete').
 
-llm-todo keeps completed tasks for search history.
+WARNING: This cannot be undone.
 
-To mark as completed (recommended):
-  todo done 1,2,3
+Examples:
+  todo rm 5           # Delete task 5
+  todo rm 1,3,7       # Delete tasks 1, 3, and 7
 
-Example workflow:
-  todo get pending    # Find task ID
-  todo done 5         # Mark complete
-  todo search "auth"  # Search includes completed tasks
+To mark as done instead (keeps in database):
+  todo done 5`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return deleteCmd().RunE(cmd, args)
+		},
+	}
+}
 
-Note: Permanent deletion is not yet implemented.
-For now: Use 'done' to mark complete.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(cmd.Long)
+// removeCmd - "remove" as alias to "delete"
+func removeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <task-ids>",
+		Short: "Delete task(s) (alias for 'delete')",
+		Long: `Permanently delete tasks (alias for 'delete').
+
+WARNING: This cannot be undone.
+
+Examples:
+  todo remove 5           # Delete task 5
+  todo remove 1,3,7       # Delete tasks 1, 3, and 7
+
+To mark as done instead (keeps in database):
+  todo done 5`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return deleteCmd().RunE(cmd, args)
 		},
 	}
 }

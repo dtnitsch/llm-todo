@@ -183,8 +183,22 @@ func PrintFull(task *todo.Task) {
 		fmt.Printf("\nNotes:\n%s\n", task.Notes)
 	}
 
+	if task.DependantIDs != "" && task.DependantIDs != "[]" {
+		var depIDs []int64
+		if err := json.Unmarshal([]byte(task.DependantIDs), &depIDs); err == nil && len(depIDs) > 0 {
+			fmt.Printf("\nDependencies: ")
+			for i, id := range depIDs {
+				if i > 0 {
+					fmt.Printf(", ")
+				}
+				fmt.Printf("#%d", id)
+			}
+			fmt.Println()
+		}
+	}
+
 	if task.BlockingReason != "" {
-		fmt.Printf("\n⚠️  Blocked: %s\n", task.BlockingReason)
+		fmt.Printf("\nBLOCKED: %s\n", task.BlockingReason)
 	}
 }
 

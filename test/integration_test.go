@@ -361,3 +361,89 @@ func TestGetFilters(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteCommand(t *testing.T) {
+	s := newSession(t)
+	defer s.cleanup()
+
+	// Create 5 tasks
+	s.run("quick", "Task 1", "Task 2", "Task 3", "Task 4", "Task 5")
+
+	// Verify all tasks exist
+	out, err := s.run("get", "pending")
+	if err != nil {
+		t.Fatalf("get pending failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "5 total") {
+		t.Errorf("Expected 5 tasks, got: %s", out)
+	}
+
+	// Delete single task
+	out, err = s.run("delete", "3")
+	if err != nil {
+		t.Fatalf("delete failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Deleted task #3") {
+		t.Errorf("Expected delete confirmation, got: %s", out)
+	}
+
+	// Verify task is gone
+	out, err = s.run("get", "pending")
+	if err != nil {
+		t.Fatalf("get pending failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "4 total") {
+		t.Errorf("Expected 4 tasks after delete, got: %s", out)
+	}
+
+	// Batch delete
+	out, err = s.run("delete", "1,2")
+	if err != nil {
+		t.Fatalf("batch delete failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Deleted 2 tasks") {
+		t.Errorf("Expected batch delete confirmation, got: %s", out)
+	}
+
+	// Verify only 2 tasks remain
+	out, err = s.run("get", "pending")
+	if err != nil {
+		t.Fatalf("get pending failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "2 total") {
+		t.Errorf("Expected 2 tasks after batch delete, got: %s", out)
+	}
+
+	// Test rm alias
+	out, err = s.run("rm", "4")
+	if err != nil {
+		t.Fatalf("rm alias failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Deleted task #4") {
+		t.Errorf("Expected rm alias to work, got: %s", out)
+	}
+
+	// Test remove alias
+	out, err = s.run("remove", "5")
+	if err != nil {
+		t.Fatalf("remove alias failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Deleted task #5") {
+		t.Errorf("Expected remove alias to work, got: %s", out)
+	}
+
+	// Verify all tasks deleted
+	out, err = s.run("get", "pending")
+	if err != nil {
+		t.Fatalf("get pending failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "0 total") {
+		t.Errorf("Expected 0 tasks after all deletes, got: %s", out)
+	}
+
+	// Test delete non-existent task
+	_, err = s.run("delete", "999")
+	if err == nil {
+		t.Error("Expected error when deleting non-existent task, got none")
+	}
+}
