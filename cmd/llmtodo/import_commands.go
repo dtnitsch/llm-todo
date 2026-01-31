@@ -62,9 +62,16 @@ Examples:
 			}
 			defer mgr.Close()
 
-			// Use current directory name as session ID if not provided
+			// Determine session ID if not provided
 			if sessionID == "" {
-				sessionID = filepath.Base(mustGetwd())
+				// First try to get current session
+				currentSession, err := todo.GetCurrentSession()
+				if err == nil && currentSession != "" {
+					sessionID = currentSession
+				} else {
+					// Fall back to directory name
+					sessionID = filepath.Base(mustGetwd())
+				}
 			}
 
 			// Ensure session exists
@@ -73,23 +80,30 @@ Examples:
 				return err
 			}
 
-			var count int
+			var count, createdCount, updatedCount int
 			var goal string
-			var isUpdate bool
+			var mode string
 
 			// Import from directory or file
 			if dir != "" {
 				count, goal, err = importer.ImportFromDirectory(mgr, sessionID, dir)
+				mode = "create"
 			} else if len(args) > 0 {
-				// Detect if this is an update (has task IDs) or create (no IDs)
-				isUpdate = detectUpdateMode(args[0])
+				// Detect import mode
+				mode = detectImportMode(args[0])
 
-				if isUpdate {
-					// Update existing tasks
+				if mode == "hybrid" {
+					// Hybrid mode: update tasks with IDs, create tasks without IDs
+					createdCount, updatedCount, goal, err = importer.ImportAndUpdateFromYAML(mgr, sessionID, args[0])
+					count = createdCount + updatedCount
+				} else if mode == "update" {
+					// Update existing tasks only
 					count, goal, err = importer.UpdateTasksFromYAML(mgr, sessionID, args[0])
+					updatedCount = count
 				} else {
-					// Import new tasks
+					// Create new tasks only
 					count, goal, err = importer.ImportFromYAML(mgr, sessionID, args[0])
+					createdCount = count
 				}
 			} else {
 				return fmt.Errorf("provide file path or --dir")
@@ -112,8 +126,16 @@ Examples:
 				return err
 			}
 
-			// Show different message for updates vs creates
-			if isUpdate {
+			// Show different message based on mode
+			if mode == "hybrid" {
+				if createdCount > 0 && updatedCount > 0 {
+					fmt.Printf("Created %d new tasks and updated %d existing tasks\n", createdCount, updatedCount)
+				} else if createdCount > 0 {
+					fmt.Printf("Created %d new tasks\n", createdCount)
+				} else if updatedCount > 0 {
+					fmt.Printf("Updated %d tasks from enrichment file\n", updatedCount)
+				}
+			} else if mode == "update" {
 				fmt.Printf("Updated %d tasks from enrichment file\n", count)
 			} else {
 				fmt.Printf("Imported %d tasks into session: %s\n", count, sessionID)
@@ -169,11 +191,13 @@ Examples:
 
 // validateImportFile validates a YAML file without importing (parse-only, no DB access)
 func validateImportFile(filePath string) error {
-	// Detect if this is an update (has task IDs) or create (no IDs)
-	isUpdate := detectUpdateMode(filePath)
+	// Detect import mode
+	mode := detectImportMode(filePath)
 
 	fmt.Printf("Validating: %s\n", filePath)
-	if isUpdate {
+	if mode == "hybrid" {
+		fmt.Println("   Mode: Hybrid (update tasks with IDs, create tasks without IDs)")
+	} else if mode == "update" {
 		fmt.Println("   Mode: Update (enrichment file with task IDs)")
 	} else {
 		fmt.Println("   Mode: Create (new tasks)")
@@ -200,28 +224,55 @@ func validateImportFile(filePath string) error {
 	return nil
 }
 
-// detectUpdateMode checks if the YAML file is an enrichment file (update mode)
-// Returns true if this looks like an enrichment file with actual database task IDs
-// Returns false for create mode with logical IDs for dependencies
-func detectUpdateMode(filePath string) bool {
+// detectImportMode checks the YAML file and returns the import mode
+// Returns "create", "update", or "hybrid"
+func detectImportMode(filePath string) string {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return false
+		return "create"
 	}
 
 	content := string(data)
 
 	// No IDs at all = create mode
 	if !strings.Contains(content, "id: task-") {
-		return false
+		return "create"
 	}
 
 	// If file has "depends_on:" field, it's create mode (dependencies use logical IDs)
 	// Enrichment files don't have depends_on
 	if strings.Contains(content, "depends_on:") {
-		return false
+		return "create"
 	}
 
-	// Has IDs but no depends_on = enrichment file (update mode)
-	return true
+	// Has some IDs - now check if SOME tasks don't have IDs (hybrid mode)
+	// Simple approach: count lines with "id: task-" vs lines with "title:"
+	lines := strings.Split(content, "\n")
+	idCount := 0
+	titleCount := 0
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Check for ID lines (can be "- id: task-1" or "id: task-1")
+		if strings.Contains(trimmed, "id: task-") {
+			idCount++
+		}
+		// Check for title lines (can be "- title:" or "title:")
+		if strings.Contains(trimmed, "title:") && !strings.Contains(trimmed, "title: \"\"") {
+			titleCount++
+		}
+	}
+
+	// If we have more titles than IDs, some tasks don't have IDs (hybrid mode)
+	hasTasksWithIDs := idCount > 0
+	hasTasksWithoutIDs := titleCount > idCount
+
+	// Determine mode
+	if hasTasksWithIDs && hasTasksWithoutIDs {
+		return "hybrid"
+	} else if hasTasksWithIDs {
+		return "update"
+	} else {
+		return "create"
+	}
 }

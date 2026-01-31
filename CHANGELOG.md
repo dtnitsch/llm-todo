@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-01-31
+
+### Added
+- **Task prioritization commands**: Three new commands for managing task priority and order
+  - `llmtodo skip [task-ids]` - Defer task(s) by moving to back of priority queue (+500 to priority_order)
+  - `llmtodo promote [task-ids]` - Increase priority level (p1→p0, p2→p1, p3→p2, p4→p3)
+  - `llmtodo demote [task-ids]` - Decrease priority level (p0→p1, p1→p2, p2→p3, p3→p4)
+  - All commands support batch operations: `llmtodo skip 1,2,3`
+  - All commands work with no args to affect current task: `llmtodo skip`
+  - Smart edge cases: Can't promote p0 tasks or demote p4 tasks (helpful error messages)
+
+### Benefits
+- **skip**: Time-based deferral - "Do this later" without changing importance
+- **demote/promote**: Importance-based adjustment - "Less/more important than I thought"
+- Fills workflow gap between `next` and `done` for LLM task management
+- Requested by Claude and Gemini during real-world usage
+
 ## [0.8.2] - 2026-01-26
 
 ### Fixed

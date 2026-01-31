@@ -24,6 +24,9 @@ TASK CREATION:
 TASK WORKFLOW:
   next         Show next task with details
   done         Complete tasks: llmtodo done 1,2,3
+  skip         Defer tasks: llmtodo skip 1,2,3 (moves to back of priority)
+  promote      Increase priority: llmtodo promote 5 (p1→p0)
+  demote       Decrease priority: llmtodo demote 5 (p0→p1)
   block        Block tasks: llmtodo block 5 "reason"
   note         Add notes: llmtodo note 5 "context"
   enrich       Add detailed instructions: llmtodo enrich 1,2,3

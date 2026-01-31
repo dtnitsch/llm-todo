@@ -379,6 +379,236 @@ func ImportFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, string,
 	return len(ids), goal, nil
 }
 
+// ImportAndUpdateFromYAML handles hybrid mode: updates tasks with IDs, creates tasks without IDs
+// Returns (createdCount, updatedCount, goal, error)
+func ImportAndUpdateFromYAML(mgr *todo.Manager, sessionID, filePath string) (int, int, string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return 0, 0, "", fmt.Errorf("ERROR: Failed to read file: %s\n   Make sure the file exists and is readable", filePath)
+	}
+
+	// Check for common typos before parsing
+	typos := CheckForCommonTypos(string(data))
+	if len(typos) > 0 {
+		return 0, 0, "", fmt.Errorf("ERROR: Possible typos detected:\n   %s\n\n   Fix these and try again", strings.Join(typos, "\n   "))
+	}
+
+	// Parse YAML file
+	var yamlFile YAMLFile
+	var tasks []YAMLTask
+	var goal string
+
+	if err := yaml.Unmarshal(data, &yamlFile); err == nil && len(yamlFile.Tasks) > 0 {
+		tasks = yamlFile.Tasks
+		goal = yamlFile.Goal
+	} else {
+		if err := yaml.Unmarshal(data, &tasks); err != nil {
+			return 0, 0, "", fmt.Errorf("ERROR: Invalid YAML format:\n   %v\n\n   HINT: Check indentation (use spaces, not tabs)\n   HINT: Run: llmtodo import --template to see correct format", err)
+		}
+	}
+
+	// Separate tasks into two groups: with IDs (update) and without IDs (create)
+	var tasksToUpdate []YAMLTask
+	var tasksToCreate []YAMLTask
+
+	for _, task := range tasks {
+		if task.Title == "" {
+			continue
+		}
+		if task.ID != "" {
+			tasksToUpdate = append(tasksToUpdate, task)
+		} else {
+			tasksToCreate = append(tasksToCreate, task)
+		}
+	}
+
+	var errors []string
+	var updatedCount, createdCount int
+
+	// PHASE 1: Update existing tasks
+	if len(tasksToUpdate) > 0 {
+		for _, yamlTask := range tasksToUpdate {
+			// Extract task number from "task-{num}"
+			var taskID int
+			if _, err := fmt.Sscanf(yamlTask.ID, "task-%d", &taskID); err != nil {
+				errors = append(errors, fmt.Sprintf("ERROR: Malformed ID %q (expected format: task-123)", yamlTask.ID))
+				continue
+			}
+
+			// Validate fields
+			if yamlTask.Priority != "" {
+				if err := ValidatePriority(yamlTask.Priority); err != nil {
+					ie := err.(*ImportError)
+					ie.TaskID = yamlTask.ID
+					errors = append(errors, ie.Error())
+					continue
+				}
+			}
+
+			if yamlTask.Effort != "" {
+				if err := ValidateEffort(yamlTask.Effort); err != nil {
+					ie := err.(*ImportError)
+					ie.TaskID = yamlTask.ID
+					errors = append(errors, ie.Error())
+					continue
+				}
+			}
+
+			if yamlTask.Type != "" {
+				if err := ValidateTaskType(yamlTask.Type); err != nil {
+					ie := err.(*ImportError)
+					ie.TaskID = yamlTask.ID
+					errors = append(errors, ie.Error())
+					continue
+				}
+			}
+
+			// Build updates map
+			updates := make(map[string]interface{})
+
+			if yamlTask.Title != "" {
+				updates["task"] = yamlTask.Title
+				updates["active_form"] = generateActiveForm(yamlTask.Title)
+			}
+
+			if yamlTask.Priority != "" {
+				updates["priority"] = yamlTask.Priority
+			}
+
+			if yamlTask.Effort != "" {
+				updates["effort"] = yamlTask.Effort
+			}
+
+			if yamlTask.Status != "" {
+				updates["status"] = mapStatus(yamlTask.Status)
+			}
+
+			if yamlTask.Type != "" {
+				updates["type"] = yamlTask.Type
+			}
+
+			if len(yamlTask.Files) > 0 {
+				filesJSON, _ := json.Marshal(yamlTask.Files)
+				updates["files"] = string(filesJSON)
+			}
+
+			if len(yamlTask.Refs) > 0 {
+				refsJSON, _ := json.Marshal(yamlTask.Refs)
+				updates["refs"] = string(refsJSON)
+			}
+
+			if len(yamlTask.Instructions) > 0 {
+				instructionsJSON, _ := json.Marshal(yamlTask.Instructions)
+				updates["instructions"] = string(instructionsJSON)
+			}
+
+			// Update task
+			if len(updates) > 0 {
+				if err := mgr.UpdateTaskInSession(sessionID, taskID, updates); err != nil {
+					errors = append(errors, fmt.Sprintf("ERROR: Task %s not found\n   Task ID %d doesn't exist in session %s", yamlTask.ID, taskID, sessionID))
+					continue
+				}
+				updatedCount++
+			}
+		}
+	}
+
+	// PHASE 2: Create new tasks
+	if len(tasksToCreate) > 0 {
+		filePriority := extractPriorityFromFilename(filePath)
+		var tasksForBulkInsert []*todo.Task
+		var yamlTasksWithIDs []YAMLTask
+
+		for _, yamlTask := range tasksToCreate {
+			// Use file priority if task doesn't specify one
+			if yamlTask.Priority == "" {
+				yamlTask.Priority = filePriority
+			}
+
+			// Validate fields
+			if yamlTask.Priority != "" {
+				if err := ValidatePriority(yamlTask.Priority); err != nil {
+					ie := err.(*ImportError)
+					ie.TaskID = yamlTask.ID
+					errors = append(errors, ie.Error())
+					continue
+				}
+			}
+
+			if yamlTask.Effort != "" {
+				if err := ValidateEffort(yamlTask.Effort); err != nil {
+					ie := err.(*ImportError)
+					ie.TaskID = yamlTask.ID
+					errors = append(errors, ie.Error())
+					continue
+				}
+			}
+
+			if yamlTask.Type != "" {
+				if err := ValidateTaskType(yamlTask.Type); err != nil {
+					ie := err.(*ImportError)
+					ie.TaskID = yamlTask.ID
+					errors = append(errors, ie.Error())
+					continue
+				}
+			}
+
+			// Convert to Task
+			task := convertYAMLTask(yamlTask, sessionID, nil)
+			tasksForBulkInsert = append(tasksForBulkInsert, task)
+			yamlTasksWithIDs = append(yamlTasksWithIDs, yamlTask)
+		}
+
+		// Bulk insert new tasks
+		if len(tasksForBulkInsert) > 0 {
+			ids, err := mgr.BulkCreateTasks(tasksForBulkInsert)
+			if err != nil {
+				return createdCount, updatedCount, goal, fmt.Errorf("failed to create tasks: %w", err)
+			}
+			createdCount = len(ids)
+
+			// Handle dependencies if any
+			idMap := make(map[string]int64)
+			for i, yamlTask := range yamlTasksWithIDs {
+				if yamlTask.ID != "" {
+					idMap[yamlTask.ID] = ids[i]
+				}
+			}
+
+			for i, yamlTask := range yamlTasksWithIDs {
+				if len(yamlTask.DependsOn) > 0 {
+					var dbIDs []int64
+					var missing []string
+					for _, logicalID := range yamlTask.DependsOn {
+						if dbID, ok := idMap[logicalID]; ok {
+							dbIDs = append(dbIDs, dbID)
+						} else {
+							missing = append(missing, logicalID)
+						}
+					}
+					if len(missing) > 0 {
+						return createdCount, updatedCount, goal, fmt.Errorf("ERROR: Task %q depends on unknown task(s): %v\n   HINT: Make sure dependency IDs are defined before they're referenced", yamlTask.Title, missing)
+					}
+					if len(dbIDs) > 0 {
+						idsJSON, _ := json.Marshal(dbIDs)
+						updates := map[string]interface{}{"dependant_ids": string(idsJSON)}
+						if err := mgr.UpdateTask(int(ids[i]), updates); err != nil {
+							return createdCount, updatedCount, goal, fmt.Errorf("failed to update dependencies for task %d: %w", ids[i], err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If we had errors, return them
+	if len(errors) > 0 {
+		return createdCount, updatedCount, goal, fmt.Errorf("\n%s", strings.Join(errors, "\n\n"))
+	}
+
+	return createdCount, updatedCount, goal, nil
+}
+
 // ImportFromDirectory imports all YAML files from a directory
 func ImportFromDirectory(mgr *todo.Manager, sessionID, dirPath string) (int, string, error) {
 	files := []string{"todo.p0.yaml", "todo.p1.yaml", "todo.p2.yaml", "todo.p3.yaml", "todo.p4.yaml"}
